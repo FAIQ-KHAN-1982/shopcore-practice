@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 # format:
 # postgresql://username:password@host:port/dbname
 
-DATABASE_URL = "postgresql://postgres:FAIQ@localhost:5432/shopcore"
+DATABASE_URL = "postgresql://postgres:*******@localhost:5432/shopcore"
 
 
 # Engine = core connection to DB
