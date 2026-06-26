@@ -80,6 +80,19 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class UserResponse(BaseModel):
+    id: int
+    email: EmailStr
+    first_name: str
+    last_name: str
+    phone: str | None = None
+    is_verified: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # ==========================================
 # 4. SECURITY UTILS (app/security/...)
 # ==========================================
@@ -91,6 +104,9 @@ class LoginRequest(BaseModel):
 # ==========================================
 def get_user_by_email(db: Session, email: str):
     return db.query(User).filter(User.email == email).first()
+
+def get_all_users(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(User).offset(skip).limit(limit).all()
 
 def create_user(db: Session, data):
     existing = get_user_by_email(db, data.email)
@@ -143,3 +159,7 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)):
             detail="Invalid credentials"
         )
     return {"message": "Login successful", "user_id": user.id}
+
+@app.get("/users", response_model=list[UserResponse], tags=["Users"])
+def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    return get_all_users(db, skip=skip, limit=limit)
