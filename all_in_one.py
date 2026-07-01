@@ -1,9 +1,11 @@
+# the origonal one 
+
 
 # --- IMPORTS ---
 import re
 import bcrypt
 from datetime import datetime, timedelta
-from jose import jwt
+import jwt
 
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime
@@ -80,6 +82,23 @@ class RegisterRequest(BaseModel):
             raise ValueError("Must contain 1 special character")
         return v
 
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Must contain 1 uppercase letter")
+        if not re.search(r"[0-9]", v):
+            raise ValueError("Must contain 1 number")
+        if not re.search(r"[\W_]", v):
+            raise ValueError("Must contain 1 special character")
+        return v
+
 class UserResponse(BaseModel):
     id: int
     email: EmailStr
@@ -91,6 +110,10 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
 
 # ==========================================
 # 4. SECURITY UTILS (app/security/...)
@@ -114,6 +137,11 @@ def create_verification_token(email: str):
         "exp": datetime.utcnow() + timedelta(hours=24)
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+def create_access_token(email: str, expires_delta: timedelta | None = None):
+    expire = datetime.utcnow() + (expires_delta or timedelta(hours=1))
+    to_encode = {"sub": email, "exp": expire}
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
 # ==========================================
@@ -145,7 +173,6 @@ def create_user(db: Session, data):
 
     return user, verification_token
 
-
 # ==========================================
 # 6. FASTAPI APP & ROUTES (app/main.py + app/routers/auth.py)
 # ==========================================
@@ -169,3 +196,19 @@ def register(user: RegisterRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+@app.post("/auth/login", response_model=LoginResponse, tags=["Auth"])
+def login(request: LoginRequest, db: Session = Depends(get_db)):
+    user = get_user_by_email(db, request.email)
+    if not user or not verify_password(request.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
+    
+    access_token = create_access_token(user.email)
+    return LoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user=user
+    )

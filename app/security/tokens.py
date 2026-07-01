@@ -1,4 +1,4 @@
-from jose import jwt
+import jwt
 from datetime import datetime, timedelta
 
 SECRET_KEY = "super-secret-key-change-this"
