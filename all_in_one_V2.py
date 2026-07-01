@@ -1,3 +1,6 @@
+# added delete endpoint
+
+
 # --- IMPORTS ---
 import re
 from datetime import datetime, timezone
@@ -79,12 +82,8 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
-
-class UserUpdateRequest(BaseModel):
+class DeleteRequest(BaseModel):
     first_name: str
-    last_name: str
-    phone: str | None = None
-
 
 class UserResponse(BaseModel):
     id: int
@@ -133,22 +132,15 @@ def create_user(db: Session, data):
 
     return user
 
-def update_user_profile(db: Session, user_id: int, update_data: UserUpdateRequest):
-    db_user = db.query(User).filter(User.id == user_id).first()
+def delete_the_user(db: Session, user: DeleteRequest):
+    # Query database to get the SQLAlchemy User model using the first_name
+    db_user = db.query(User).filter(User.first_name == user.first_name).first()
     if not db_user:
-        return None
-
-    db_user.first_name = update_data.first_name
-    db_user.last_name = update_data.last_name
+        raise ValueError("User not found")
     
-    # Only update phone if a value was provided in the request
-    if update_data.phone is not None:
-        db_user.phone = update_data.phone
-
+    db.delete(db_user)
     db.commit()
-    db.refresh(db_user)
-
-    return db_user
+    return {"message": "User deleted successfully", "user_name": user.first_name}
 
 
 # ==========================================
@@ -187,12 +179,12 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)):
 def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return get_all_users(db, skip=skip, limit=limit)
 
-@app.put("/users/{user_id}", response_model=UserResponse, tags=["Users"])
-def update_user(user_id: int, payload: UserUpdateRequest, db: Session = Depends(get_db)):
-    updated_user = update_user_profile(db, user_id=user_id, update_data=payload)
-    if not updated_user:
+@app.delete("/users")
+def deleteuser(user: DeleteRequest, db: Session = Depends(get_db)):
+    try:
+        return delete_the_user(db, user)
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            detail=str(e)
         )
-    return updated_user

@@ -1,3 +1,6 @@
+# removed the authentication for simplicity
+
+
 # --- IMPORTS ---
 import re
 from datetime import datetime, timezone
