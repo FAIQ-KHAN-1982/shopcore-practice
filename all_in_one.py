@@ -6,8 +6,11 @@ import re
 import bcrypt
 from datetime import datetime, timedelta
 import jwt
+import smtplib
+from email.message import EmailMessage
 
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from pydantic import BaseModel, EmailStr, field_validator
@@ -176,19 +179,93 @@ def create_user(db: Session, data):
 # ==========================================
 # 6. FASTAPI APP & ROUTES (app/main.py + app/routers/auth.py)
 # ==========================================
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+SMTP_USERNAME = "your_email@gmail.com"
+SMTP_PASSWORD = "your_app_password"
+
+def send_verification_email(to_email: str, token: str):
+    msg = EmailMessage()
+    msg['Subject'] = "Verify your email"
+    msg['From'] = SMTP_USERNAME
+    msg['To'] = to_email
+
+    verification_link = f"http://localhost:8000/auth/verify?token={token}"
+    msg.set_content(f"Please verify your email by clicking on the link:\n{verification_link}\n\nIf you did not request this, please ignore this email.")
+
+    try:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.send_message(msg)
+            print(f"Verification email sent to {to_email}")
+    except Exception as e:
+        print(f"Failed to send email to {to_email}. Error: {e}")
+        print(f"Mock Email Content -> Link: {verification_link}")
+
 app = FastAPI()
+
+# ──────────────────────────────────────────────────────────
+# CORS — allows the HTML/JS frontend (opened in a browser
+# from a different port or file://) to call this API.
+# In production, replace "*" with your actual frontend URL.
+# ──────────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],    # allow any origin during development
+    allow_credentials=True,
+    allow_methods=["*"],    # allow GET, POST, PUT, DELETE …
+    allow_headers=["*"],    # allow Content-Type, Authorization …
+)
 
 # Create tables in the database (from main.py)
 Base.metadata.create_all(bind=engine)
 
+@app.get("/auth/verify", tags=["Auth"])
+def verify(token: str, db: Session = Depends(get_db)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid token structure"
+            )
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification token has expired"
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid verification token"
+        )
+    
+    user = get_user_by_email(db, email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+        
+    if user.is_verified:
+        return {"message": "Email is already verified"}
+        
+    user.is_verified = True
+    user.verification_token = None
+    user.token_expires_at = None
+    db.commit()
+    db.refresh(user)
+    return {"message": "Email verified successfully"}
+
 # Instead of using an APIRouter, we can define the route directly on `app`
 # when everything is in one file.
 @app.post("/auth/register", response_model=UserResponse, status_code=201, tags=["Auth"])
-def register(user: RegisterRequest, db: Session = Depends(get_db)):
+def register(user: RegisterRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     try:
         new_user, token = create_user(db, user)
-        # IMPORTANT: send email here (not implemented yet)
-        # send_verification_email(new_user.email, token)
+        background_tasks.add_task(send_verification_email, str(new_user.email), token)
         return new_user
 
     except ValueError as e:
@@ -206,7 +283,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
             detail="Incorrect email or password"
         )
     
-    access_token = create_access_token(user.email)
+    access_token = create_access_token(str(user.email))
     return LoginResponse(
         access_token=access_token,
         token_type="bearer",

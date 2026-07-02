@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShopCore – Auth</title>
+  <meta name="description" content="ShopCore user authentication portal. Register, log in, and verify your account." />
+
+  <!-- Google Font: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Our stylesheet -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Background decorative orbs -->
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <!-- ====================================================
+       NAVBAR
+  ==================================================== -->
+  <nav class="navbar">
+    <div class="nav-logo">
+      <span class="logo-icon">◈</span>
+      <span class="logo-text">ShopCore</span>
+    </div>
+    <div class="nav-tabs">
+      <button id="tab-register" class="tab-btn active" onclick="showTab('register')">Register</button>
+      <button id="tab-login"    class="tab-btn"        onclick="showTab('login')">Login</button>
+    </div>
+  </nav>
+
+  <!-- ====================================================
+       MAIN CONTENT
+  ==================================================== -->
+  <main class="main-wrapper">
+
+    <!-- ══════════════════════════════════════════════════
+         REGISTER PANEL
+         API: POST /auth/register
+         Called in: app.js → registerUser()
+    ══════════════════════════════════════════════════ -->
+    <section id="panel-register" class="panel active">
+      <div class="card">
+        <div class="card-header">
+          <h1 class="card-title">Create account</h1>
+          <p class="card-subtitle">Join ShopCore and start shopping smarter.</p>
+        </div>
+
+        <form id="register-form" class="form" novalidate>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="reg-first-name">First name</label>
+              <input id="reg-first-name" type="text" placeholder="John" autocomplete="given-name" required />
+            </div>
+            <div class="form-group">
+              <label for="reg-last-name">Last name</label>
+              <input id="reg-last-name" type="text" placeholder="Doe" autocomplete="family-name" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="reg-email">Email address</label>
+            <input id="reg-email" type="email" placeholder="john@example.com" autocomplete="email" required />
+          </div>
+
+          <div class="form-group">
+            <label for="reg-phone">Phone <span class="optional">(optional)</span></label>
+            <input id="reg-phone" type="tel" placeholder="+1 555 000 0000" autocomplete="tel" />
+          </div>
+
+          <div class="form-group">
+            <label for="reg-password">Password</label>
+            <div class="input-wrapper">
+              <input
+                id="reg-password"
+                type="password"
+                placeholder="••••••••"
+                autocomplete="new-password"
+                required
+                oninput="updateStrength(this.value)"
+              />
+              <button type="button" class="eye-btn" onclick="togglePassword('reg-password', this)" aria-label="Toggle password visibility">👁</button>
+            </div>
+            <p class="hint">Min 8 chars · 1 uppercase · 1 number · 1 special character</p>
+          </div>
+
+          <!-- Live password strength bar -->
+          <div class="strength-wrap">
+            <div class="strength-bar" id="strength-bar"></div>
+          </div>
+          <p class="strength-label" id="strength-label"></p>
+
+          <button id="register-btn" type="submit" class="btn-primary" onclick="registerUser(event)">
+            <span class="btn-text">Create account</span>
+            <span class="spinner hidden" id="reg-spinner">⟳</span>
+          </button>
+        </form>
+
+        <!-- Success / error feedback for register -->
+        <div id="register-toast" class="toast hidden"></div>
+
+        <p class="switch-link">
+          Already have an account?
+          <a href="#" onclick="showTab('login')">Sign in</a>
+        </p>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════
+         LOGIN PANEL
+         API: POST /auth/login
+         Called in: app.js → loginUser()
+    ══════════════════════════════════════════════════ -->
+    <section id="panel-login" class="panel">
+      <div class="card">
+        <div class="card-header">
+          <h1 class="card-title">Welcome back</h1>
+          <p class="card-subtitle">Sign in to your ShopCore account.</p>
+        </div>
+
+        <form id="login-form" class="form" novalidate>
+          <div class="form-group">
+            <label for="login-email">Email address</label>
+            <input id="login-email" type="email" placeholder="john@example.com" autocomplete="email" required />
+          </div>
+
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <div class="input-wrapper">
+              <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password" required />
+              <button type="button" class="eye-btn" onclick="togglePassword('login-password', this)" aria-label="Toggle password visibility">👁</button>
+            </div>
+          </div>
+
+          <button id="login-btn" type="submit" class="btn-primary" onclick="loginUser(event)">
+            <span class="btn-text">Sign in</span>
+            <span class="spinner hidden" id="login-spinner">⟳</span>
+          </button>
+        </form>
+
+        <!-- Success / error feedback for login -->
+        <div id="login-toast" class="toast hidden"></div>
+
+        <p class="switch-link">
+          Don't have an account?
+          <a href="#" onclick="showTab('register')">Register</a>
+        </p>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════
+         DASHBOARD PANEL  (shown after successful login)
+         No direct API call here — data was returned by /auth/login
+    ══════════════════════════════════════════════════ -->
+    <section id="panel-dashboard" class="panel">
+      <div class="card dashboard-card">
+
+        <!-- User avatar (initials) -->
+        <div class="avatar" id="user-avatar"></div>
+
+        <h1 class="dashboard-name" id="dashboard-name">Hello!</h1>
+        <p class="dashboard-email" id="dashboard-email"></p>
+
+        <div class="badge-row">
+          <span class="badge" id="verify-badge">⏳ Unverified</span>
+        </div>
+
+        <!-- Grid of user details -->
+        <div class="info-grid" id="user-info-grid"></div>
+
+        <!-- JWT token display -->
+        <div class="token-box">
+          <p class="token-label">🔑 JWT Access Token</p>
+          <code class="token-value" id="token-value"></code>
+        </div>
+
+        <button class="btn-outline" onclick="logoutUser()">Sign out</button>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════
+         EMAIL VERIFICATION PANEL
+         Shown when the URL contains ?token=...
+         API: GET /auth/verify?token=<JWT>
+         Called in: app.js → handleVerifyToken()
+    ══════════════════════════════════════════════════ -->
+    <section id="panel-verify" class="panel">
+      <div class="card verify-card">
+        <div class="verify-icon" id="verify-icon">🔄</div>
+        <h1 class="card-title" id="verify-title">Verifying your email…</h1>
+        <p class="card-subtitle" id="verify-msg">Please wait while we confirm your account.</p>
+        <button class="btn-primary" style="margin-top:1.8rem" onclick="showTab('login')">Go to Login</button>
+      </div>
+    </section>
+
+  </main><!-- /.main-wrapper -->
+
+  <!-- Our JavaScript (must be at the bottom so the DOM is ready) -->
+  <script src="app.js"></script>
+</body>
+</html>

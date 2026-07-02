@@ -1,0 +1,582 @@
+/* =====================================================
+   style.css — ShopCore Frontend Styles
+   Beginner-friendly: each section is clearly labelled.
+===================================================== */
+
+/* ---------------------------------------------------
+   1. CSS VARIABLES (Design Tokens)
+   Change these to retheme the whole app instantly.
+--------------------------------------------------- */
+:root {
+  --bg-dark:        #0c0e16;
+  --bg-card:        #131520;
+  --bg-input:       #1a1d2e;
+  --border-color:   #2a2d45;
+  --border-focus:   #6c63ff;
+
+  --primary:        #6c63ff;
+  --primary-hover:  #5a52e0;
+  --primary-glow:   rgba(108, 99, 255, 0.35);
+
+  --accent:         #a78bfa;
+  --success:        #34d399;
+  --error:          #f87171;
+  --warning:        #fbbf24;
+
+  --text-primary:   #f1f1f5;
+  --text-secondary: #8b8ea8;
+  --text-muted:     #555878;
+
+  --font:           'Inter', system-ui, sans-serif;
+  --radius:         14px;
+  --radius-sm:      8px;
+  --shadow:         0 24px 60px rgba(0, 0, 0, 0.5);
+  --transition:     0.25s ease;
+}
+
+/* ---------------------------------------------------
+   2. RESET & BASE
+--------------------------------------------------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font);
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+a:hover { color: var(--accent); }
+
+button { cursor: pointer; font-family: var(--font); }
+
+/* ---------------------------------------------------
+   3. ANIMATED BACKGROUND ORBS
+   Pure CSS decorative circles in the background.
+--------------------------------------------------- */
+.bg-orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(100px);
+  z-index: 0;
+  pointer-events: none;
+  animation: floatOrb 8s ease-in-out infinite alternate;
+}
+
+.orb-1 {
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(108,99,255,0.18), transparent 70%);
+  top: -150px; left: -150px;
+  animation-delay: 0s;
+}
+.orb-2 {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(167,139,250,0.12), transparent 70%);
+  bottom: -100px; right: -100px;
+  animation-delay: 3s;
+}
+.orb-3 {
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, rgba(52,211,153,0.08), transparent 70%);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  animation-delay: 6s;
+}
+
+@keyframes floatOrb {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(30px, 20px) scale(1.05); }
+}
+
+/* ---------------------------------------------------
+   4. NAVBAR
+--------------------------------------------------- */
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 2rem;
+  background: rgba(12, 14, 22, 0.75);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.logo-icon {
+  font-size: 1.4rem;
+  color: var(--primary);
+}
+
+.logo-text {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #f1f1f5, var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 0.4rem;
+  background: var(--bg-input);
+  padding: 0.3rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+}
+
+.tab-btn {
+  padding: 0.4rem 1.2rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background var(--transition), color var(--transition);
+}
+.tab-btn.active {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+.tab-btn:hover:not(.active) {
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.06);
+}
+
+/* ---------------------------------------------------
+   5. MAIN LAYOUT & PANELS
+--------------------------------------------------- */
+.main-wrapper {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 3rem 1.5rem 4rem;
+}
+
+/* Each section is a "panel" — only the .active one is shown */
+.panel {
+  display: none;
+  width: 100%;
+  max-width: 480px;
+  animation: fadeUp 0.4s ease;
+}
+.panel.active {
+  display: block;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------------------------------------------------
+   6. CARD
+--------------------------------------------------- */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 2.5rem 2rem;
+  box-shadow: var(--shadow);
+  transition: box-shadow var(--transition);
+}
+.card:hover {
+  box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+}
+
+.card-header {
+  margin-bottom: 1.8rem;
+  text-align: center;
+}
+
+.card-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #fff, var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.35rem;
+}
+
+.card-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* ---------------------------------------------------
+   7. FORMS & INPUTS
+--------------------------------------------------- */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.optional {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+
+input {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.925rem;
+  font-family: var(--font);
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+input::placeholder { color: var(--text-muted); }
+input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+/* Wrapper for input + eye button side-by-side */
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.input-wrapper input {
+  padding-right: 2.8rem;
+}
+
+.eye-btn {
+  position: absolute;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  padding: 0;
+  transition: color var(--transition);
+}
+.eye-btn:hover { color: var(--text-primary); }
+
+/* Small helper text below password field */
+.hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+/* ---------------------------------------------------
+   8. PASSWORD STRENGTH BAR
+--------------------------------------------------- */
+.strength-wrap {
+  height: 5px;
+  background: var(--bg-input);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: -0.2rem;
+}
+
+.strength-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  transition: width 0.4s ease, background 0.4s ease;
+}
+
+.strength-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  height: 1rem;       /* reserve space so layout doesn't jump */
+}
+
+/* ---------------------------------------------------
+   9. BUTTONS
+--------------------------------------------------- */
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.8rem 1rem;
+  margin-top: 0.5rem;
+  background: linear-gradient(135deg, var(--primary), #8b5cf6);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+  box-shadow: 0 4px 20px var(--primary-glow);
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px var(--primary-glow);
+}
+.btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-outline {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  margin-top: 1rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: border-color var(--transition), color var(--transition), background var(--transition);
+}
+.btn-outline:hover {
+  border-color: var(--error);
+  color: var(--error);
+  background: rgba(248, 113, 113, 0.06);
+}
+
+/* Spinning animation for loading state */
+.spinner {
+  display: inline-block;
+  animation: spin 0.8s linear infinite;
+  font-size: 1.1rem;
+}
+.hidden { display: none !important; }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ---------------------------------------------------
+   10. TOAST NOTIFICATIONS
+   (shown below the form on success / error)
+--------------------------------------------------- */
+.toast {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: center;
+  animation: fadeUp 0.3s ease;
+}
+.toast.success {
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid var(--success);
+  color: var(--success);
+}
+.toast.error {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid var(--error);
+  color: var(--error);
+}
+
+/* ---------------------------------------------------
+   11. SWITCH LINK (bottom of form: "Already a member?")
+--------------------------------------------------- */
+.switch-link {
+  text-align: center;
+  margin-top: 1.2rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* ---------------------------------------------------
+   12. DASHBOARD CARD (post-login view)
+--------------------------------------------------- */
+.dashboard-card {
+  text-align: center;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+/* Circular avatar showing user initials */
+.avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), #8b5cf6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 auto 1.2rem;
+  box-shadow: 0 0 30px var(--primary-glow);
+}
+
+.dashboard-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+}
+
+.dashboard-email {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+/* Verification status badge row */
+.badge-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba(251,191,36,0.12);
+  border: 1px solid var(--warning);
+  color: var(--warning);
+}
+.badge.verified {
+  background: rgba(52,211,153,0.12);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+/* Grid showing user fields (ID, phone, joined date) */
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+.info-item {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+}
+.info-item .info-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 0.2rem;
+}
+.info-item .info-value {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+/* JWT token display box */
+.token-box {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  text-align: left;
+}
+.token-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.5rem;
+}
+.token-value {
+  font-family: 'Courier New', monospace;
+  font-size: 0.72rem;
+  color: var(--accent);
+  word-break: break-all;
+  display: block;
+  line-height: 1.5;
+}
+
+/* ---------------------------------------------------
+   13. EMAIL VERIFICATION CARD
+--------------------------------------------------- */
+.verify-card {
+  text-align: center;
+  max-width: 420px;
+  margin: 0 auto;
+}
+.verify-icon {
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.12); }
+}
+
+/* ---------------------------------------------------
+   14. RESPONSIVE (mobile-first adjustments)
+--------------------------------------------------- */
+@media (max-width: 520px) {
+  .card { padding: 2rem 1.25rem; }
+  .form-row { grid-template-columns: 1fr; }
+  .info-grid { grid-template-columns: 1fr; }
+  .navbar { padding: 0.9rem 1.2rem; }
+}
