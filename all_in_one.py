@@ -4,7 +4,7 @@
 # --- IMPORTS ---
 import re
 import bcrypt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import jwt
 import smtplib
 from email.message import EmailMessage
@@ -13,7 +13,8 @@ from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
-from pydantic import BaseModel, EmailStr, field_validator
+from typing import Optional
+from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 
 
 # ==========================================
@@ -59,7 +60,7 @@ class User(Base):
     is_verified = Column(Boolean, default=False)
     verification_token = Column(String, nullable=True)
     token_expires_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 # ==========================================
@@ -70,7 +71,7 @@ class RegisterRequest(BaseModel):
     password: str
     first_name: str
     last_name: str
-    phone: str | None = None
+    phone: Optional[str] = None
 
     @field_validator("password")
     @classmethod
@@ -107,11 +108,10 @@ class UserResponse(BaseModel):
     email: EmailStr
     first_name: str
     last_name: str
-    phone: str | None
+    phone: Optional[str]
     is_verified: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class LoginResponse(BaseModel):
     access_token: str
@@ -137,12 +137,12 @@ ALGORITHM = "HS256"
 def create_verification_token(email: str):
     payload = {
         "sub": email,
-        "exp": datetime.utcnow() + timedelta(hours=24)
+        "exp": datetime.now(timezone.utc) + timedelta(hours=24)
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
-def create_access_token(email: str, expires_delta: timedelta | None = None):
-    expire = datetime.utcnow() + (expires_delta or timedelta(hours=1))
+def create_access_token(email: str, expires_delta: Optional[timedelta] = None):
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(hours=1))
     to_encode = {"sub": email, "exp": expire}
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -167,7 +167,7 @@ def create_user(db: Session, data):
         last_name=data.last_name,
         phone=data.phone,
         verification_token=verification_token,
-        token_expires_at=datetime.utcnow()
+        token_expires_at=datetime.now(timezone.utc) + timedelta(hours=24)
     )
 
     db.add(user)
@@ -248,11 +248,13 @@ def verify(token: str, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-        
+
+    assert user is not None  # narrows type from User | None → User
+
     if user.is_verified:
         return {"message": "Email is already verified"}
-        
-    user.is_verified = True
+
+    user.is_verified = True  # type: ignore[assignment]
     user.verification_token = None
     user.token_expires_at = None
     db.commit()
@@ -289,3 +291,8 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
         token_type="bearer",
         user=user
     )
+
+
+# start the backend: uvicorn all_in_one:app --reload
+# start the frontend: cd "d:\Backend Projects\shopcore\frontend"
+# python -m http.server 5500
