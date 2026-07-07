@@ -3,27 +3,29 @@
    Beginner-friendly, no frameworks, vanilla JS only.
 
    API ENDPOINTS USED:
-   ┌──────────────────────────────────────────────────────┐
-   │  POST  /auth/register   → registerUser()             │
-   │  POST  /auth/login      → loginUser()                │
-   │  GET   /auth/verify     → handleVerifyToken()        │
-   └──────────────────────────────────────────────────────┘
+   ┌──────────────────────────────────────────────────────────┐
+   │  POST  /auth/register               → registerUser()     │
+   │  POST  /auth/login                  → loginUser()        │
+   │  GET   /auth/verify                 → handleVerifyToken()│
+   │  POST  /auth/refresh                → simulateTokenRefresh()│
+   │  POST  /auth/logout                 → logoutUser()       │
+   │  POST  /auth/forgot-password        → forgotPassword()   │
+   │  POST  /auth/reset-password         → resetPassword()    │
+   │  POST  /auth/change-password        → changePassword()   │
+   │  POST  /auth/oauth/google/callback  → acceptGoogleConsent()│
+   │  GET   /admin/users                 → renderAdminPanel() │
+   │  POST  /admin/users/{id}/lock       → lockUser()         │
+   │  POST  /admin/users/{id}/unlock     → unlockUser()       │
+   │  GET   /seller/dashboard            → testSellerRoute()  │
+   │  GET   /seller/products/{id}/modify → testSellerModify() │
+   └──────────────────────────────────────────────────────────┘
 ===================================================== */
 
-// ─────────────────────────────────────────────────
-//  BASE URL — change this if your FastAPI runs on
-//  a different host or port.
-// ─────────────────────────────────────────────────
 const API_BASE = "http://localhost:8000";
 
 // ─────────────────────────────────────────────────
 //  PANEL / TAB NAVIGATION
-//  Hides all panels, then shows the requested one.
 // ─────────────────────────────────────────────────
-/**
- * showTab(name)
- * name: "register" | "login" | "dashboard" | "verify"
- */
 function showTab(name) {
   // Hide every panel
   document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
@@ -37,21 +39,24 @@ function showTab(name) {
   // Highlight the matching nav tab button (register / login only)
   const btn = document.getElementById("tab-" + name);
   if (btn) btn.classList.add("active");
+
+  // Hide nav tabs container if not on register/login
+  const navTabs = document.getElementById("nav-tabs-container");
+  if (name === "dashboard" || name === "verify" || name === "forgot" || name === "reset" || name === "google-consent") {
+    navTabs.style.display = "none";
+  } else {
+    navTabs.style.display = "flex";
+  }
 }
 
 // ─────────────────────────────────────────────────
-//  SHOW TOAST  (success/error message under a form)
+//  SHOW TOAST
 // ─────────────────────────────────────────────────
-/**
- * showToast(id, message, type)
- * id   : element id of the toast div
- * type : "success" | "error"
- */
 function showToast(id, message, type) {
   const el = document.getElementById(id);
   if (!el) return;
   el.textContent = message;
-  el.className = "toast " + type;   // sets colour class
+  el.className = "toast " + type;   // sets color class
   el.classList.remove("hidden");
 
   // Auto-hide after 5 seconds
@@ -62,13 +67,8 @@ function showToast(id, message, type) {
 }
 
 // ─────────────────────────────────────────────────
-//  TOGGLE PASSWORD VISIBILITY (the 👁 button)
+//  TOGGLE PASSWORD VISIBILITY (👁)
 // ─────────────────────────────────────────────────
-/**
- * togglePassword(inputId, btn)
- * inputId : the id of the <input type="password">
- * btn     : the button element that was clicked
- */
 function togglePassword(inputId, btn) {
   const input = document.getElementById(inputId);
   if (input.type === "password") {
@@ -82,23 +82,20 @@ function togglePassword(inputId, btn) {
 
 // ─────────────────────────────────────────────────
 //  PASSWORD STRENGTH METER
-//  Updates the coloured bar below the password field
-//  as the user types.
 // ─────────────────────────────────────────────────
-/**
- * updateStrength(password)
- * Called by the oninput event on the register password field.
- */
-function updateStrength(password) {
-  const bar   = document.getElementById("strength-bar");
-  const label = document.getElementById("strength-label");
-  if (!bar || !label) return;
-
+function calculateStrength(password) {
   let score = 0;
-  if (password.length >= 8)          score++;   // length OK
-  if (/[A-Z]/.test(password))        score++;   // has uppercase
-  if (/[0-9]/.test(password))        score++;   // has digit
-  if (/[\W_]/.test(password))        score++;   // has special char
+  if (password.length >= 8)          score++;
+  if (/[A-Z]/.test(password))        score++;
+  if (/[0-9]/.test(password))        score++;
+  if (/[\W_]/.test(password))        score++;
+  return score;
+}
+
+function updateStrengthBar(score, barId, labelId) {
+  const bar   = document.getElementById(barId);
+  const label = document.getElementById(labelId);
+  if (!bar || !label) return;
 
   const levels = [
     { pct: "0%",   color: "transparent",   text: "" },
@@ -115,14 +112,19 @@ function updateStrength(password) {
   label.style.color    = level.color;
 }
 
+function updateStrength(password) {
+  const score = calculateStrength(password);
+  updateStrengthBar(score, "strength-bar", "strength-label");
+}
+
+function updateResetStrength(password) {
+  const score = calculateStrength(password);
+  updateStrengthBar(score, "reset-strength-bar", "reset-strength-label");
+}
+
 // ─────────────────────────────────────────────────
-//  SET LOADING STATE on a button
+//  SET LOADING STATE
 // ─────────────────────────────────────────────────
-/**
- * setLoading(btnId, spinnerId, loading)
- * loading: true  → disable button, show spinner
- * loading: false → enable button, hide spinner
- */
 function setLoading(btnId, spinnerId, loading) {
   const btn     = document.getElementById(btnId);
   const spinner = document.getElementById(spinnerId);
@@ -131,92 +133,70 @@ function setLoading(btnId, spinnerId, loading) {
   btn.disabled = loading;
   if (loading) {
     spinner.classList.remove("hidden");
-    btn.querySelector(".btn-text").style.opacity = "0.5";
+    const textSpan = btn.querySelector(".btn-text");
+    if (textSpan) textSpan.style.opacity = "0.5";
   } else {
     spinner.classList.add("hidden");
-    btn.querySelector(".btn-text").style.opacity = "1";
+    const textSpan = btn.querySelector(".btn-text");
+    if (textSpan) textSpan.style.opacity = "1";
   }
 }
 
 // ═════════════════════════════════════════════════
-//  API CALL 1 — REGISTER
-//  Endpoint : POST /auth/register
-//  Request  : { email, password, first_name, last_name, phone? }
-//  Response : UserResponse (id, email, first_name, last_name, phone, is_verified)
+//  API CALL — REGISTER
 // ═════════════════════════════════════════════════
 async function registerUser(event) {
-  // Prevent the default HTML form submission (page reload)
   event.preventDefault();
 
-  // --- 1. Collect form values ---
   const email      = document.getElementById("reg-email").value.trim();
   const password   = document.getElementById("reg-password").value;
   const first_name = document.getElementById("reg-first-name").value.trim();
   const last_name  = document.getElementById("reg-last-name").value.trim();
   const phone      = document.getElementById("reg-phone").value.trim() || null;
+  const role       = document.getElementById("reg-role").value;
 
-  // --- 2. Basic client-side validation ---
   if (!email || !password || !first_name || !last_name) {
     showToast("register-toast", "Please fill in all required fields.", "error");
     return;
   }
 
-  // --- 3. Show loading state ---
   setLoading("register-btn", "reg-spinner", true);
 
   try {
-    // --- 4. Call the API ---
-    //  URL    : POST http://localhost:8000/auth/register
-    //  Body   : JSON with user details
-    //  Returns: UserResponse on success, or 400/422 on error
     const response = await fetch(`${API_BASE}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, first_name, last_name, phone }),
+      body: JSON.stringify({ email, password, first_name, last_name, phone, role }),
     });
 
     const data = await response.json();
 
-    // --- 5. Handle the response ---
     if (response.ok) {
-      // 201 Created — registration successful
       showToast(
         "register-toast",
-        `🎉 Account created for ${data.first_name}! Check your email to verify your account.`,
+        `🎉 Account created for ${data.first_name}! Verify your account via the link in the mock console log.`,
         "success"
       );
-      // Clear the form
       document.getElementById("register-form").reset();
-      updateStrength(""); // reset strength bar
+      updateStrength("");
     } else {
-      // 400 Bad Request — validation error or duplicate email
       const errMsg = data.detail || "Registration failed. Please try again.";
       showToast("register-toast", errMsg, "error");
     }
   } catch (err) {
-    // Network error — server is probably not running
-    showToast(
-      "register-toast",
-      "Cannot reach the server. Is FastAPI running on port 8000?",
-      "error"
-    );
+    showToast("register-toast", "Cannot reach the server. Is FastAPI running?", "error");
     console.error("Register error:", err);
   } finally {
-    // Always re-enable the button
     setLoading("register-btn", "reg-spinner", false);
   }
 }
 
 // ═════════════════════════════════════════════════
-//  API CALL 2 — LOGIN
-//  Endpoint : POST /auth/login
-//  Request  : { email, password }
-//  Response : LoginResponse { access_token, token_type, user: UserResponse }
+//  API CALL — LOGIN
 // ═════════════════════════════════════════════════
 async function loginUser(event) {
   event.preventDefault();
 
-  // --- 1. Collect form values ---
   const email    = document.getElementById("login-email").value.trim();
   const password = document.getElementById("login-password").value;
 
@@ -225,14 +205,9 @@ async function loginUser(event) {
     return;
   }
 
-  // --- 2. Show loading ---
   setLoading("login-btn", "login-spinner", true);
 
   try {
-    // --- 3. Call the API ---
-    //  URL    : POST http://localhost:8000/auth/login
-    //  Body   : JSON with email + password
-    //  Returns: access_token + user object on success, 401 on wrong credentials
     const response = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -241,67 +216,98 @@ async function loginUser(event) {
 
     const data = await response.json();
 
-    // --- 4. Handle response ---
     if (response.ok) {
-      // Save the JWT token in sessionStorage
-      // (sessionStorage is cleared when the browser tab is closed)
       sessionStorage.setItem("access_token", data.access_token);
+      sessionStorage.setItem("refresh_token", data.refresh_token);
       sessionStorage.setItem("user", JSON.stringify(data.user));
 
-      // Show the dashboard with user info
-      renderDashboard(data.user, data.access_token);
+      renderDashboard(data.user, data.access_token, data.refresh_token);
       showTab("dashboard");
 
-      // Clear login form
       document.getElementById("login-form").reset();
     } else {
-      // 401 Unauthorized — wrong email or password
       const errMsg = data.detail || "Login failed. Check your credentials.";
       showToast("login-toast", errMsg, "error");
     }
   } catch (err) {
-    showToast(
-      "login-toast",
-      "Cannot reach the server. Is FastAPI running on port 8000?",
-      "error"
-    );
+    showToast("login-toast", "Cannot reach the server. Is FastAPI running?", "error");
     console.error("Login error:", err);
   } finally {
     setLoading("login-btn", "login-spinner", false);
   }
 }
 
+// ═════════════════════════════════════════════════
+//  API CALL — MOCK GOOGLE LOGIN
+// ═════════════════════════════════════════════════
+function initiateGoogleLogin() {
+  showTab("google-consent");
+}
+
+async function acceptGoogleConsent() {
+  const prefix = document.getElementById("google-mock-prefix").value.trim();
+  if (!prefix) return;
+
+  const mockCode = prefix; // Representing email prefix in simulator
+
+  try {
+    const response = await fetch(`${API_BASE}/auth/oauth/google/callback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: mockCode }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      sessionStorage.setItem("access_token", data.access_token);
+      sessionStorage.setItem("refresh_token", data.refresh_token);
+      sessionStorage.setItem("user", JSON.stringify(data.user));
+
+      renderDashboard(data.user, data.access_token, data.refresh_token);
+      showTab("dashboard");
+    } else {
+      alert("Google login failed: " + (data.detail || "Unknown error"));
+      showTab("login");
+    }
+  } catch (err) {
+    alert("Cannot reach backend server to complete Google OAuth.");
+    showTab("login");
+  }
+}
+
 // ─────────────────────────────────────────────────
-//  RENDER DASHBOARD  (called after successful login)
-//  Fills in all the user info fields.
+//  RENDER DASHBOARD
 // ─────────────────────────────────────────────────
-/**
- * renderDashboard(user, token)
- * user  : UserResponse object from the API
- * token : JWT access_token string
- */
-function renderDashboard(user, token) {
+function renderDashboard(user, accessToken, refreshToken) {
   // Initials for the avatar circle
-  const initials =
-    (user.first_name?.[0] || "") + (user.last_name?.[0] || "");
+  const initials = (user.first_name?.[0] || "") + (user.last_name?.[0] || "");
   document.getElementById("user-avatar").textContent = initials.toUpperCase();
 
-  // Name & email
-  document.getElementById("dashboard-name").textContent =
-    `Hello, ${user.first_name}! 👋`;
+  // Name, email, verification & role
+  document.getElementById("dashboard-name").textContent = `Hello, ${user.first_name}! 👋`;
   document.getElementById("dashboard-email").textContent = user.email;
 
-  // Verification badge
-  const badge = document.getElementById("verify-badge");
+  const verifyBadge = document.getElementById("verify-badge");
   if (user.is_verified) {
-    badge.textContent = "✅ Verified";
-    badge.classList.add("verified");
+    verifyBadge.textContent = "✅ Verified";
+    verifyBadge.className = "badge verified";
   } else {
-    badge.textContent = "⏳ Email not verified";
-    badge.classList.remove("verified");
+    verifyBadge.textContent = "⏳ Unverified";
+    verifyBadge.className = "badge";
   }
 
-  // Info grid (id, phone, joined)
+  const roleBadge = document.getElementById("role-badge");
+  roleBadge.textContent = user.role.toUpperCase();
+  if (user.role === "admin" || user.role === "superadmin") {
+    roleBadge.style.background = "#8b5cf6"; // Purple for admins
+  } else if (user.role === "seller") {
+    roleBadge.style.background = "#3b82f6"; // Blue for sellers
+  } else {
+    roleBadge.style.background = "#10b981"; // Green for buyers
+  }
+
+  // Info grid (id, phone, status)
   const grid = document.getElementById("user-info-grid");
   grid.innerHTML = `
     <div class="info-item">
@@ -312,52 +318,222 @@ function renderDashboard(user, token) {
       <div class="info-label">Phone</div>
       <div class="info-value">${user.phone || "—"}</div>
     </div>
-    <div class="info-item" style="grid-column:1/-1">
-      <div class="info-label">Full Name</div>
-      <div class="info-value">${user.first_name} ${user.last_name}</div>
+    <div class="info-item">
+      <div class="info-label">Locked Status</div>
+      <div class="info-value">${user.is_locked ? "🔴 Locked" : "🟢 Active"}</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">Account Role</div>
+      <div class="info-value" style="text-transform: capitalize;">${user.role}</div>
     </div>
   `;
 
-  // Display the JWT token (useful for beginners to see it)
-  document.getElementById("token-value").textContent = token;
+  // Display the JWT token and Refresh Token
+  document.getElementById("token-value").textContent = accessToken;
+  document.getElementById("refresh-token-value").textContent = refreshToken || "N/A (Google Login / Session Stale)";
+
+  // Enable Admin Management panel if admin
+  const adminPanel = document.getElementById("admin-user-management");
+  if (user.role === "admin" || user.role === "superadmin") {
+    adminPanel.classList.remove("hidden");
+    renderAdminPanel();
+  } else {
+    adminPanel.classList.add("hidden");
+  }
+
+  // Reset RBAC tester log
+  document.getElementById("rbac-tester-logs").textContent = "Click a route above to test permissions...";
 }
 
-// ─────────────────────────────────────────────────
-//  LOGOUT
-// ─────────────────────────────────────────────────
-function logoutUser() {
+// ═════════════════════════════════════════════════
+//  API CALL — REFRESH TOKEN (Rotation)
+// ═════════════════════════════════════════════════
+async function simulateTokenRefresh() {
+  const refreshToken = sessionStorage.getItem("refresh_token");
+  if (!refreshToken) {
+    alert("No refresh token found. Please log in again.");
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      sessionStorage.setItem("access_token", data.access_token);
+      sessionStorage.setItem("refresh_token", data.refresh_token);
+      
+      renderDashboard(data.user, data.access_token, data.refresh_token);
+      alert("✅ Token rotated successfully!\nOld refresh token is now invalidated.");
+    } else {
+      alert("❌ Token refresh failed: " + (data.detail || "Your session may have expired."));
+      logoutUser(false);
+    }
+  } catch (err) {
+    console.error("Refresh error:", err);
+    alert("Connection error during token refresh.");
+  }
+}
+
+// ═════════════════════════════════════════════════
+//  API CALL — FORGOT PASSWORD
+// ═════════════════════════════════════════════════
+async function forgotPassword(event) {
+  event.preventDefault();
+
+  const email = document.getElementById("forgot-email").value.trim();
+  if (!email) {
+    showToast("forgot-toast", "Please enter your email.", "error");
+    return;
+  }
+
+  setLoading("forgot-btn", "forgot-spinner", true);
+
+  try {
+    const response = await fetch(`${API_BASE}/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      showToast("forgot-toast", "🎉 Success! Check the mock console log for your reset password link.", "success");
+      document.getElementById("forgot-form").reset();
+    } else {
+      showToast("forgot-toast", data.detail || "Failed to process request.", "error");
+    }
+  } catch (err) {
+    showToast("forgot-toast", "Cannot reach backend. Is FastAPI running?", "error");
+  } finally {
+    setLoading("forgot-btn", "forgot-spinner", false);
+  }
+}
+
+// ═════════════════════════════════════════════════
+//  API CALL — RESET PASSWORD
+// ═════════════════════════════════════════════════
+async function resetPassword(event) {
+  event.preventDefault();
+
+  const token = document.getElementById("reset-token-input").value;
+  const new_password = document.getElementById("reset-password").value;
+
+  if (!token || !new_password) {
+    showToast("reset-toast", "Invalid reset code or password details.", "error");
+    return;
+  }
+
+  setLoading("reset-btn", "reset-spinner", true);
+
+  try {
+    const response = await fetch(`${API_BASE}/auth/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, new_password }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      showToast("reset-toast", "✅ Password reset successfully! Redirecting to login in 3s...", "success");
+      document.getElementById("reset-form").reset();
+      
+      setTimeout(() => {
+        // Clear url params
+        window.history.replaceState({}, document.title, window.location.pathname);
+        showTab("login");
+      }, 3000);
+    } else {
+      showToast("reset-toast", data.detail || "Reset failed. The link may have expired.", "error");
+    }
+  } catch (err) {
+    showToast("reset-toast", "Cannot reach server.", "error");
+  } finally {
+    setLoading("reset-btn", "reset-spinner", false);
+  }
+}
+
+// ═════════════════════════════════════════════════
+//  API CALL — CHANGE PASSWORD (Authenticated)
+// ═════════════════════════════════════════════════
+async function changePassword(event) {
+  event.preventDefault();
+
+  const current_password = document.getElementById("change-old-password").value;
+  const new_password = document.getElementById("change-new-password").value;
+  const token = sessionStorage.getItem("access_token");
+
+  if (!current_password || !new_password) {
+    showToast("change-password-toast", "Please fill in passwords.", "error");
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/auth/change-password`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ current_password, new_password }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      showToast("change-password-toast", "✅ Password changed! All other sessions logged out.", "success");
+      document.getElementById("change-password-form").reset();
+    } else {
+      showToast("change-password-toast", data.detail || "Failed to change password.", "error");
+    }
+  } catch (err) {
+    showToast("change-password-toast", "Cannot connect to server.", "error");
+  }
+}
+
+// ═════════════════════════════════════════════════
+//  API CALL — LOGOUT
+// ═════════════════════════════════════════════════
+async function logoutUser(logoutEverywhere = false) {
+  const refreshToken = sessionStorage.getItem("refresh_token");
+  
+  if (refreshToken) {
+    try {
+      await fetch(`${API_BASE}/auth/logout?logout_everywhere=${logoutEverywhere}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+    } catch (e) {
+      console.warn("Logout request failed:", e);
+    }
+  }
+
   sessionStorage.removeItem("access_token");
+  sessionStorage.removeItem("refresh_token");
   sessionStorage.removeItem("user");
   showTab("login");
 }
 
 // ═════════════════════════════════════════════════
-//  API CALL 3 — EMAIL VERIFICATION
-//  Endpoint : GET /auth/verify?token=<JWT>
-//  Request  : token passed as a query string parameter
-//  Response : { message: "Email verified successfully" }
-//
-//  This is triggered automatically when the page loads
-//  IF the URL contains ?token=... (from the email link).
+//  API CALL — EMAIL VERIFICATION
 // ═════════════════════════════════════════════════
 async function handleVerifyToken() {
-  // Extract the "token" value from the URL query string
-  // e.g. http://localhost:8000/auth/verify?token=eyJ...
-  // When the user opens this URL, the browser lands on our
-  // index.html (served on a different port) but we still
-  // read the token and call the FastAPI backend directly.
   const params = new URLSearchParams(window.location.search);
   const token  = params.get("token");
 
-  if (!token) return;   // No token in URL — skip verification
+  if (!token) return;
 
-  // Show the verify panel
   showTab("verify");
 
   try {
-    // --- Call the API ---
-    //  URL : GET http://localhost:8000/auth/verify?token=<token>
-    //  No request body needed — token is in the query string.
     const response = await fetch(`${API_BASE}/auth/verify?token=${encodeURIComponent(token)}`);
     const data     = await response.json();
 
@@ -366,12 +542,10 @@ async function handleVerifyToken() {
     const msg   = document.getElementById("verify-msg");
 
     if (response.ok) {
-      // Success
       icon.textContent  = "✅";
       title.textContent = "Email verified!";
       msg.textContent   = data.message || "Your account is now active. You can log in.";
     } else {
-      // Error (expired token, already verified, etc.)
       icon.textContent  = "❌";
       title.textContent = "Verification failed";
       msg.textContent   = data.detail || "The link may be expired or invalid.";
@@ -379,41 +553,182 @@ async function handleVerifyToken() {
   } catch (err) {
     document.getElementById("verify-icon").textContent  = "⚠️";
     document.getElementById("verify-title").textContent = "Network error";
-    document.getElementById("verify-msg").textContent   =
-      "Could not connect to the server. Is FastAPI running?";
-    console.error("Verify error:", err);
+    document.getElementById("verify-msg").textContent   = "Could not connect to the server.";
+  }
+}
+
+// ═════════════════════════════════════════════════
+//  RBAC TESTING
+// ═════════════════════════════════════════════════
+async function makeAuthorizedRequest(url, method = "GET") {
+  const token = sessionStorage.getItem("access_token");
+  const logBox = document.getElementById("rbac-tester-logs");
+
+  logBox.textContent = `Sending ${method} ${url}...\n`;
+
+  try {
+    const response = await fetch(url, {
+      method: method,
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    });
+
+    const status = response.status;
+    const text = await response.text();
+    let jsonFormatted = text;
+    try {
+      jsonFormatted = JSON.stringify(JSON.parse(text), null, 2);
+    } catch {}
+
+    logBox.textContent = `Status: ${status}\nResponse:\n${jsonFormatted}`;
+  } catch (err) {
+    logBox.textContent = `Network error calling ${url}: ${err.message}`;
+  }
+}
+
+function testSellerRoute() {
+  makeAuthorizedRequest(`${API_BASE}/seller/dashboard`);
+}
+
+function testSellerModify(ownerId) {
+  makeAuthorizedRequest(`${API_BASE}/seller/products/${ownerId}/modify`);
+}
+
+function testAdminRoute() {
+  makeAuthorizedRequest(`${API_BASE}/admin/users`);
+}
+
+// ═════════════════════════════════════════════════
+//  ADMIN PANEL CONTROLS
+// ═════════════════════════════════════════════════
+async function renderAdminPanel() {
+  const container = document.getElementById("admin-users-container");
+  const token = sessionStorage.getItem("access_token");
+
+  try {
+    const response = await fetch(`${API_BASE}/admin/users`, {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      container.innerHTML = `<span style="color:#f87171;">Failed to fetch users: status ${response.status}</span>`;
+      return;
+    }
+
+    const users = await response.json();
+
+    let html = `
+      <table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:0.5rem;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border); text-align:left; color:var(--text-muted);">
+            <th style="padding:0.4rem;">ID</th>
+            <th style="padding:0.4rem;">Email</th>
+            <th style="padding:0.4rem;">Role</th>
+            <th style="padding:0.4rem;">Verified</th>
+            <th style="padding:0.4rem;">Status</th>
+            <th style="padding:0.4rem; text-align:center;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    users.forEach(u => {
+      const statusText = u.is_locked ? "🔴 Locked" : "🟢 Active";
+      const actionButton = u.is_locked 
+        ? `<button class="btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; border-color:#34d399; color:#34d399;" onclick="unlockAdminUser(${u.id})">Unlock</button>`
+        : `<button class="btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; border-color:#f87171; color:#f87171;" onclick="lockAdminUser(${u.id})">Lock</button>`;
+
+      html += `
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+          <td style="padding:0.4rem;">#${u.id}</td>
+          <td style="padding:0.4rem; max-width:120px; overflow:hidden; text-overflow:ellipsis;">${u.email}</td>
+          <td style="padding:0.4rem; text-transform:capitalize;">${u.role}</td>
+          <td style="padding:0.4rem;">${u.is_verified ? "Yes" : "No"}</td>
+          <td style="padding:0.4rem;">${statusText}</td>
+          <td style="padding:0.4rem; text-align:center;">${actionButton}</td>
+        </tr>
+      `;
+    });
+
+    html += `</tbody></table>`;
+    container.innerHTML = html;
+
+  } catch (err) {
+    container.innerHTML = `<span style="color:#f87171;">Connection error.</span>`;
+  }
+}
+
+async function lockAdminUser(userId) {
+  const token = sessionStorage.getItem("access_token");
+  try {
+    const response = await fetch(`${API_BASE}/admin/users/${userId}/lock`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (response.ok) {
+      renderAdminPanel();
+    } else {
+      alert("Failed to lock user.");
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function unlockAdminUser(userId) {
+  const token = sessionStorage.getItem("access_token");
+  try {
+    const response = await fetch(`${API_BASE}/admin/users/${userId}/unlock`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (response.ok) {
+      renderAdminPanel();
+    } else {
+      alert("Failed to unlock user.");
+    }
+  } catch (err) {
+    console.error(err);
   }
 }
 
 // ─────────────────────────────────────────────────
 //  PAGE INITIALISATION
-//  Runs automatically when the page finishes loading.
 // ─────────────────────────────────────────────────
 window.addEventListener("DOMContentLoaded", () => {
-  // 1. Check if there's a verification token in the URL
-  //    (user clicked the verification link from their email)
   const params = new URLSearchParams(window.location.search);
+  
+  // 1. Check for verification token in URL
   if (params.get("token")) {
     handleVerifyToken();
-    return;  // don't do anything else
+    return;
   }
 
-  // 2. If the user was already logged in (token in sessionStorage),
-  //    skip the login screen and go straight to the dashboard.
+  // 2. Check for forgot password reset_token in URL
+  if (params.get("reset_token")) {
+    const resetToken = params.get("reset_token");
+    showTab("reset");
+    document.getElementById("reset-token-input").value = resetToken;
+    return;
+  }
+
+  // 3. Auto-login session recovery
   const savedToken = sessionStorage.getItem("access_token");
+  const savedRefreshToken = sessionStorage.getItem("refresh_token");
   const savedUser  = sessionStorage.getItem("user");
+  
   if (savedToken && savedUser) {
     try {
       const user = JSON.parse(savedUser);
-      renderDashboard(user, savedToken);
+      renderDashboard(user, savedToken, savedRefreshToken);
       showTab("dashboard");
     } catch {
-      // Corrupted data — start fresh
       sessionStorage.clear();
+      showTab("register");
     }
     return;
   }
 
-  // 3. Default: show the register tab
   showTab("register");
 });
