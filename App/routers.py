@@ -17,7 +17,9 @@ from App.Schemas import (
     ForgotPasswordRequest,
     ResetPasswordRequest,
     ChangePasswordRequest,
-    OAuth2CallbackRequest
+    OAuth2CallbackRequest,
+    resendingtoken,
+    EmailStr
 )
 from App.Security import (
     SECRET_KEY,
@@ -33,7 +35,8 @@ from App.Security import (
     revoke_all_user_tokens,
     get_current_user,
     RequireRole,
-    verify_resource_ownership
+    verify_resource_ownership,
+    create_verification_token
 )
 from App.Services import (
     get_user_by_email,
@@ -99,6 +102,28 @@ def register(user: RegisterRequest, background_tasks: BackgroundTasks, db: Sessi
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+@router.get("/auth/resend_verfication_token", tags=["Auth"])
+def resend_verification_token_endpoint(email: EmailStr, db: Session = Depends(get_db)):
+    user = get_user_by_email(db, email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    if user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is already verified"
+        )
+    verification_token = create_verification_token(str(user.email))
+    user.verification_token = verification_token
+    user.token_expires_at = datetime.now(timezone.utc) + timedelta(days=1)
+    db.commit()
+    db.refresh(user)
+    send_verification_email(str(user.email), verification_token)
+    return {"message": "Verification token sent successfully"}
+
 
 @router.post("/auth/login", response_model=LoginResponse, tags=["Auth"])
 def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_db)):
@@ -379,3 +404,4 @@ def seller_dashboard(current_user: User = Depends(RequireRole(["seller", "admin"
 def seller_modify_resource(owner_id: int, current_user: User = Depends(RequireRole(["seller", "admin", "superadmin"]))):
     verify_resource_ownership(current_user, owner_id)
     return {"message": f"Authorization verification successful. You are allowed to edit resources owned by user #{owner_id}."}
+

@@ -96,3 +96,6 @@ class ChangePasswordRequest(BaseModel):
 class OAuth2CallbackRequest(BaseModel):
     code: str
     state: Optional[str] = None
+
+class resendingtoken(BaseModel):
+    email: EmailStr

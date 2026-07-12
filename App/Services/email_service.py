@@ -33,7 +33,7 @@ def send_email_template(to_email: str, subject: str, body: str):
         print("------------------------------------------\n")
 
 def send_verification_email(to_email: str, token: str):
-    link = f"http://localhost:5500/index.html?token={token}"
+    link = f"for FRONTEND: http://localhost:5500/index.html?token={token} for BACKEND: http://localhost:8000/auth/verify?token={token}"
     body = f"Please verify your email by clicking on the link:\n{link}\n\nThis link is valid for 24 hours."
     send_email_template(to_email, "Verify your ShopCore Account", body)
 
