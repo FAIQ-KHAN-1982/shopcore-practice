@@ -103,9 +103,9 @@ def register(user: RegisterRequest, background_tasks: BackgroundTasks, db: Sessi
             detail=str(e)
         )
 
-@router.get("/auth/resend_verfication_token", tags=["Auth"])
-def resend_verification_token_endpoint(email: EmailStr, db: Session = Depends(get_db)):
-    user = get_user_by_email(db, email)
+@router.post("/auth/resend_verfication_token", tags=["Auth"])
+def resend_verification_token_endpoint(data: resendingtoken, db: Session = Depends(get_db)):
+    user = get_user_by_email(db, data.email)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
