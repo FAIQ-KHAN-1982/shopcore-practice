@@ -44,7 +44,8 @@ from App.Services import (
     send_verification_email,
     send_reset_password_email,
     send_new_device_login_alert,
-    send_lockout_alert_email
+    send_lockout_alert_email,
+    login_user,
 )
 
 router = APIRouter()
@@ -127,88 +128,7 @@ def resend_verification_token_endpoint(data: resendingtoken, db: Session = Depen
 
 @router.post("/auth/login", response_model=LoginResponse, tags=["Auth"])
 def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_db)):
-    ip_address = request.client.host if request.client else "127.0.0.1"
-    user = get_user_by_email(db, login_data.email)
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password"
-        )
-        
-    # Check if locked
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    if user.is_locked:
-        if user.locked_until:
-            locked_until_naive = user.locked_until.replace(tzinfo=None) if user.locked_until.tzinfo else user.locked_until
-            if locked_until_naive < now:
-                # Unlock automatically if duration passed
-                user.is_locked = False
-                user.failed_login_attempts = 0
-                user.locked_until = None
-                db.commit()
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Account is locked. Please unlock via email or admin."
-                )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Account is locked. Please unlock via email or admin."
-            )
-
-    # Verify password
-    if not verify_password(login_data.password, user.hashed_password):
-        # Lockout tracking
-        user.failed_login_attempts += 1
-        if user.failed_login_attempts >= MAX_LOGIN_ATTEMPTS:
-            user.is_locked = True
-            user.locked_until = now + timedelta(minutes=15)
-            db.commit()
-            send_lockout_alert_email(str(user.email))
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Account locked due to {MAX_LOGIN_ATTEMPTS} failed attempts. Lock expires in 15 minutes."
-            )
-        else:
-            db.commit()
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Incorrect email or password. Attempt {user.failed_login_attempts} of {MAX_LOGIN_ATTEMPTS}."
-            )
-            
-    # Email verification check
-    if REQUIRE_EMAIL_VERIFICATION and not user.is_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email address not verified."
-        )
-
-    # Detect login from new device/location
-    if user.last_login_ip and user.last_login_ip != ip_address:
-        send_new_device_login_alert(str(user.email), ip_address)
-        
-    # Reset security fields
-    user.failed_login_attempts = 0
-    user.is_locked = False
-    user.locked_until = None
-    user.last_login_at = now
-    user.last_login_ip = ip_address
-    
-    # Generate token pair
-    access_token = create_access_token(str(user.email))
-    refresh_token = create_refresh_token(db, user.id, ip_address)
-    
-    db.commit()
-    db.refresh(user)
-    
-    return LoginResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer",
-        user=user
-    )
+    return login_user(request, login_data, db)
 
 @router.post("/auth/refresh", response_model=LoginResponse, tags=["Auth"])
 def refresh(request: Request, refresh_data: TokenRefreshRequest, db: Session = Depends(get_db)):
