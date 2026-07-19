@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session
 from fastapi import Request, HTTPException, status
 from App.Models import User
 from App.Schemas import RegisterRequest, LoginRequest, LoginResponse, TokenRefreshRequest
-from App.Security import hash_password, create_verification_token, verify_password, create_access_token, create_refresh_token, rotate_refresh_token, send_new_device_login_alert, send_lockout_alert_email, MAX_LOGIN_ATTEMPTS, REQUIRE_EMAIL_VERIFICATION
+from App.Security import hash_password, create_verification_token, verify_password, create_access_token, create_refresh_token, rotate_refresh_token, MAX_LOGIN_ATTEMPTS, REQUIRE_EMAIL_VERIFICATION
+from App.Services.email_service import send_new_device_login_alert, send_lockout_alert_email
 
 def get_user_by_email(db: Session, email: str):
     return db.query(User).filter(User.email == email).first()

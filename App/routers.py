@@ -17,18 +17,13 @@ from App.Schemas import (
     ForgotPasswordRequest,
     ResetPasswordRequest,
     ChangePasswordRequest,
-    resendingtoken,
-    EmailStr
+    resendingtoken
 )
 from App.Security import (
     SECRET_KEY,
     ALGORITHM,
-    MAX_LOGIN_ATTEMPTS,
-    REQUIRE_EMAIL_VERIFICATION,
     hash_password,
     verify_password,
-    create_access_token,
-    create_refresh_token,
     rotate_refresh_token,
     revoke_refresh_token,
     revoke_all_user_tokens,
@@ -40,9 +35,8 @@ from App.Services import (
     create_user,
     send_verification_email,
     send_reset_password_email,
-    send_new_device_login_alert,
-    send_lockout_alert_email,
     login_user,
+    send_email_template
 )
 
 router = APIRouter()

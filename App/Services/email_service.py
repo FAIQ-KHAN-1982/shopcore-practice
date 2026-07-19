@@ -38,7 +38,7 @@ def send_verification_email(to_email: str, token: str):
     send_email_template(to_email, "Verify your ShopCore Account", body)
 
 def send_reset_password_email(to_email: str, token: str):
-    link = f"http://localhost:5500/index.html?reset_token={token}"
+    link = f"for FRONTEND: http://localhost:5500/index.html?reset_token={token} for BACKEND: http://localhost:8000/auth/reset-password?reset_token={token}"
     body = f"You requested a password reset. Click the link to reset your password:\n{link}\n\nThis link is valid for 15 minutes. If you did not request this, ignore this email."
     send_email_template(to_email, "Reset your ShopCore Password", body)
 

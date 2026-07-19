@@ -1,4 +1,4 @@
-from App.Services.auth_service import get_user_by_email, create_user
+from App.Services.auth_service import get_user_by_email, create_user, login_user
 from App.Services.email_service import (
     send_email_template,
     send_verification_email,
