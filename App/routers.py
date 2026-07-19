@@ -17,7 +17,6 @@ from App.Schemas import (
     ForgotPasswordRequest,
     ResetPasswordRequest,
     ChangePasswordRequest,
-    OAuth2CallbackRequest,
     resendingtoken,
     EmailStr
 )
@@ -34,8 +33,6 @@ from App.Security import (
     revoke_refresh_token,
     revoke_all_user_tokens,
     get_current_user,
-    RequireRole,
-    verify_resource_ownership,
     create_verification_token
 )
 from App.Services import (
@@ -233,95 +230,4 @@ def change_password(request: ChangePasswordRequest, current_user: User = Depends
     db.commit()
     
     return {"message": "Password changed successfully. All other sessions have been logged out."}
-
-# Mock OAuth2 Google Endpoints
-@router.get("/auth/oauth/google", tags=["Auth"])
-def google_auth_initiate():
-    # Return mock consent flow page redirect (handled on frontend)
-    mock_auth_url = "http://localhost:5500/index.html?provider=google&state=some-state"
-    return {"auth_url": mock_auth_url}
-
-@router.post("/auth/oauth/google/callback", response_model=LoginResponse, tags=["Auth"])
-def google_auth_callback(request: Request, data: OAuth2CallbackRequest, db: Session = Depends(get_db)):
-    ip_address = request.client.host if request.client else "127.0.0.1"
-    
-    # For simulation: the code matches the user's mock email username
-    email = data.code
-    if "@" not in email:
-        email = f"{data.code}@gmail.com"
-        
-    first_name = data.code.split("@")[0].capitalize()
-    last_name = "GoogleUser"
-    
-    user = get_user_by_email(db, email)
-    if not user:
-        user = User(
-            email=email,
-            hashed_password=None,  # No password for OAuth users
-            first_name=first_name,
-            last_name=last_name,
-            role="buyer",
-            is_verified=True,  # Google verifies email
-            created_at=datetime.now(timezone.utc)
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    user.last_login_at = now
-    user.last_login_ip = ip_address
-    
-    access_token = create_access_token(str(user.email))
-    refresh_token = create_refresh_token(db, user.id, ip_address)
-    
-    db.commit()
-    db.refresh(user)
-    
-    return LoginResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer",
-        user=user
-    )
-
-# Admin & Role Restriction Protected Routes
-@router.get("/admin/users", response_model=List[UserResponse], tags=["Admin"])
-def list_users(current_user: User = Depends(RequireRole(["admin", "superadmin"])), db: Session = Depends(get_db)):
-    return db.query(User).all()
-
-@router.post("/admin/users/{user_id}/lock", tags=["Admin"])
-def lock_user(user_id: int, current_user: User = Depends(RequireRole(["admin", "superadmin"])), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    user.is_locked = True
-    user.locked_until = None  # Lock indefinitely until unlocked by admin
-    revoke_all_user_tokens(db, user.id)
-    db.commit()
-    return {"message": f"User {user.email} has been locked."}
-
-@router.post("/admin/users/{user_id}/unlock", tags=["Admin"])
-def unlock_user(user_id: int, current_user: User = Depends(RequireRole(["admin", "superadmin"])), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    user.is_locked = False
-    user.failed_login_attempts = 0
-    user.locked_until = None
-    db.commit()
-    return {"message": f"User {user.email} has been unlocked."}
-
-@router.get("/seller/dashboard", tags=["Seller"])
-def seller_dashboard(current_user: User = Depends(RequireRole(["seller", "admin", "superadmin"]))):
-    return {
-        "message": "Welcome to the Seller Portal!",
-        "role": current_user.role,
-        "actions_allowed": ["create_listing", "update_listing"]
-    }
-
-@router.get("/seller/products/{owner_id}/modify", tags=["Seller"])
-def seller_modify_resource(owner_id: int, current_user: User = Depends(RequireRole(["seller", "admin", "superadmin"]))):
-    verify_resource_ownership(current_user, owner_id)
-    return {"message": f"Authorization verification successful. You are allowed to edit resources owned by user #{owner_id}."}
 

@@ -6,7 +6,7 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from typing import Optional, List
+from typing import Optional
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -174,22 +174,3 @@ def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session 
             
     return user
 
-class RequireRole:
-    def __init__(self, allowed_roles: List[str]):
-        self.allowed_roles = allowed_roles
-
-    def __call__(self, current_user: User = Depends(get_current_user)) -> User:
-        if current_user.role not in self.allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied: role must be one of {self.allowed_roles}"
-            )
-        return current_user
-
-def verify_resource_ownership(current_user: User, owner_id: int):
-    # Sellers can only modify their own resources, admins/superadmins can modify anything
-    if current_user.role == "seller" and current_user.id != owner_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied: sellers can only modify their own resources"
-        )

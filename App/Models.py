@@ -7,11 +7,11 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=True)  # Nullable for OAuth users
+    hashed_password = Column(String, nullable=False)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     phone = Column(String, nullable=True)
-    role = Column(String, default="buyer", nullable=False)  # "buyer", "seller", "admin", "superadmin"
+    role = Column(String, default="buyer", nullable=False)  # "buyer", "seller"
     is_verified = Column(Boolean, default=False)
     verification_token = Column(String, nullable=True)
     token_expires_at = Column(DateTime, nullable=True)

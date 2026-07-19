@@ -26,7 +26,7 @@ class RegisterRequest(BaseModel):
     @field_validator("role")
     @classmethod
     def validate_role(cls, v):
-        allowed_roles = ["buyer", "seller", "admin", "superadmin"]
+        allowed_roles = ["buyer", "seller"]
         if v not in allowed_roles:
             raise ValueError(f"Role must be one of {allowed_roles}")
         return v
@@ -92,10 +92,6 @@ class ChangePasswordRequest(BaseModel):
         if not re.search(r"[\W_]", v):
             raise ValueError("Must contain 1 special character")
         return v
-
-class OAuth2CallbackRequest(BaseModel):
-    code: str
-    state: Optional[str] = None
 
 class resendingtoken(BaseModel):
     email: EmailStr
