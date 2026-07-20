@@ -41,6 +41,8 @@ from App.Services import (
 
 router = APIRouter()
 
+# ==================== AUTH ROUTES ====================
+
 @router.get("/auth/verify", tags=["Auth"])
 def verify(token: str, db: Session = Depends(get_db)):
     try:
@@ -224,4 +226,13 @@ def change_password(request: ChangePasswordRequest, current_user: User = Depends
     db.commit()
     
     return {"message": "Password changed successfully. All other sessions have been logged out."}
+
+
+
+
+
+# ==================== USER MANAGMENT ROUTES ====================
+
+
+
 
