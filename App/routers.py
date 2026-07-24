@@ -234,18 +234,12 @@ def change_password(request: ChangePasswordRequest, current_user: User = Depends
 
 # ==================== USER MANAGMENT ROUTES ====================
 
-@router.get("/users/me", tags=["Users"])
-def my_profile(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-
-    profile = (db.query(User).filter(User.id == current_user.id).first())
-    
-    if profile is None:
-        return {"message": "User not found"}
-        
+@router.get("/users/me")
+def my_profile(current_user: User = Depends(get_current_user)):
     return {
-        "first_name": profile.first_name,
-        "last_name": profile.last_name,
-        "phone": profile.phone,
+        "first_name": current_user.first_name,
+        "last_name": current_user.last_name,
+        "phone": current_user.phone,
     }
 
 

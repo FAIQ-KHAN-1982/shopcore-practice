@@ -4,7 +4,7 @@ import secrets
 import bcrypt
 import jwt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import Optional
 from dotenv import load_dotenv
@@ -114,9 +114,10 @@ def revoke_all_user_tokens(db: Session, user_id: int):
     db.commit()
 
 # Security Dependencies
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
+security_scheme = HTTPBearer(auto_error=False)
 
-def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme), db: Session = Depends(get_db)) -> User:
+    token = credentials.credentials if credentials else None
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
