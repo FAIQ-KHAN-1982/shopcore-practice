@@ -244,7 +244,7 @@ def my_profile(current_user: User = Depends(get_current_user)):
     }
 
 
-@router.put("users/me", response_model= UserResponse, tags=["User"])
+@router.put("/users/me", response_model= UserResponse, tags=["User"])
 def update_profile(data: update_profile, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if data.first_name:
         current_user.first_name = data.first_name
