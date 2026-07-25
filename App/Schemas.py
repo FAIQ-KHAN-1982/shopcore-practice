@@ -95,3 +95,8 @@ class ChangePasswordRequest(BaseModel):
 
 class resendingtoken(BaseModel):
     email: EmailStr
+
+class update_profile(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
