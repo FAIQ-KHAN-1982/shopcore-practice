@@ -256,6 +256,15 @@ def update_profile(data: update_profile, current_user: User = Depends(get_curren
     db.refresh(current_user)
     return current_user
 
+@router.delete("/users/me", tags=["User"])
+def delete_account(current_user: User = Depends(get_current_user),db: Session = Depends(get_db)):
+
+    db.delete(current_user)
+    db.commit()
+    return {"message": "Account deleted successfully"}
+
+    
+
 
  
     
