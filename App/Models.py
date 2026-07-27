@@ -39,3 +39,13 @@ class RefreshToken(Base):
     revoked = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     ip_address = Column(String, nullable=True)
+
+class Address(Base):
+    __tablename__ = "addresses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, unique=False, index=True, nullable=False)
+    full_name = Column(String, unique=False, nullable=False)
+    phone = Column(String, unique=False, nullable=False)
+    address_line_1 = Column(String, unique=False, nullable=False)
+    city = Column(String, unique=False, nullable=False)

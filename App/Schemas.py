@@ -100,3 +100,9 @@ class update_profile(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     phone: Optional[str] = None
+
+class feilds_for_address(BaseModel):
+    full_name: str
+    phone: str
+    address_line_1: str
+    city: str

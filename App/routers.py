@@ -19,7 +19,8 @@ from App.Schemas import (
     ResetPasswordRequest,
     ChangePasswordRequest,
     resendingtoken,
-    update_profile
+    update_profile,
+    feilds_for_address
 )
 from App.Security import (
     SECRET_KEY,
@@ -263,7 +264,8 @@ def delete_account(current_user: User = Depends(get_current_user),db: Session = 
     db.commit()
     return {"message": "Account deleted successfully"}
 
-    
+@router.post("/users/me/add_address", response_model=feilds_for_address ,tags=["User"])
+def add_address(db: Session = Depends(get_db)):
 
 
  
