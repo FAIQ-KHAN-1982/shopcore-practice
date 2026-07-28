@@ -1,3 +1,4 @@
+
 from calendar import firstweekday
 from datetime import datetime, timezone, timedelta
 import secrets
@@ -7,6 +8,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 
+from App.Services.User_service import add_address
 from App.Database_Setup import get_db
 from App.Models import User, RefreshToken
 from App.Schemas import (
@@ -264,8 +266,12 @@ def delete_account(current_user: User = Depends(get_current_user),db: Session = 
     db.commit()
     return {"message": "Account deleted successfully"}
 
-@router.post("/users/me/add_address", response_model=feilds_for_address ,tags=["User"])
-def add_address(db: Session = Depends(get_db)):
+@router.post("/users/me/add_address", tags=["User"])
+def address_adding(data: feilds_for_address, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+
+    add_address(data, current_user.id, db)
+
+    return {"message": "Address added successfully"}
 
 
  

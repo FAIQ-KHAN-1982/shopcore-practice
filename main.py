@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from App.routers import router
+from App.Database_Setup import Base, engine
+from App.Models import User, RefreshToken, Address  # noqa: F401 - ensure models are registered
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="ShopCore API")
 

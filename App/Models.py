@@ -44,7 +44,7 @@ class Address(Base):
     __tablename__ = "addresses"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, unique=False, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
     full_name = Column(String, unique=False, nullable=False)
     phone = Column(String, unique=False, nullable=False)
     address_line_1 = Column(String, unique=False, nullable=False)
