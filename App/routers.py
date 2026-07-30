@@ -1,10 +1,9 @@
 
-from calendar import firstweekday
 from datetime import datetime, timezone, timedelta
 import secrets
 import hashlib
 import jwt
-from typing import List, Optional
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 
@@ -20,9 +19,9 @@ from App.Schemas import (
     ForgotPasswordRequest,
     ResetPasswordRequest,
     ChangePasswordRequest,
-    resendingtoken,
-    update_profile,
-    feilds_for_address
+    ResendVerificationTokenRequest,
+    UpdateProfileRequest,
+    FieldsForAddress
 )
 from App.Security import (
     SECRET_KEY,
@@ -103,7 +102,7 @@ def register(user: RegisterRequest, background_tasks: BackgroundTasks, db: Sessi
         )
 
 @router.post("/auth/resend_verfication_token", tags=["Auth"])
-def resend_verification_token_endpoint(data: resendingtoken, db: Session = Depends(get_db)):
+def resend_verification_token_endpoint(data: ResendVerificationTokenRequest, db: Session = Depends(get_db)):
     user = get_user_by_email(db, data.email)
     if not user:
         raise HTTPException(
@@ -135,13 +134,23 @@ def refresh(request: Request, refresh_data: TokenRefreshRequest, db: Session = D
     
     # Get user to return UserResponse
     db_token = db.query(RefreshToken).filter(RefreshToken.token == new_refresh).first()
+    if not db_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token"
+        )
     user = db.query(User).filter(User.id == db_token.user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
     
     return LoginResponse(
         access_token=new_access,
         refresh_token=new_refresh,
         token_type="bearer",
-        user=user
+        user=UserResponse.model_validate(user)
     )
 
 @router.post("/auth/logout", tags=["Auth"])
@@ -182,7 +191,7 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
     token_hash = hashlib.sha256(request.token.encode()).hexdigest()
     user = db.query(User).filter(User.reset_token_hash == token_hash).first()
     
-    if not user:
+    if not user or user.reset_token_expires_at is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired reset token"
@@ -233,12 +242,9 @@ def change_password(request: ChangePasswordRequest, current_user: User = Depends
     return {"message": "Password changed successfully. All other sessions have been logged out."}
 
 
-
-
-
 # ==================== USER MANAGMENT ROUTES ====================
 
-@router.get("/users/me", tags= ["User"])
+@router.get("/users/me", tags=["User"])
 def my_profile(current_user: User = Depends(get_current_user)):
     return {
         "first_name": current_user.first_name,
@@ -247,8 +253,8 @@ def my_profile(current_user: User = Depends(get_current_user)):
     }
 
 
-@router.put("/users/me", response_model= UserResponse, tags=["User"])
-def update_profile(data: update_profile, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+@router.put("/users/me", response_model=UserResponse, tags=["User"])
+def update_profile(data: UpdateProfileRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if data.first_name:
         current_user.first_name = data.first_name
     if data.last_name:
@@ -260,18 +266,22 @@ def update_profile(data: update_profile, current_user: User = Depends(get_curren
     return current_user
 
 @router.delete("/users/me", tags=["User"])
-def delete_account(current_user: User = Depends(get_current_user),db: Session = Depends(get_db)):
-
+def delete_account(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     db.delete(current_user)
     db.commit()
     return {"message": "Account deleted successfully"}
 
 @router.post("/users/me/add_address", tags=["User"])
-def address_adding(data: feilds_for_address, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-
+def address_adding(data: FieldsForAddress, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     add_address(data, current_user.id, db)
-
     return {"message": "Address added successfully"}
+
+
+
+
+
+
+
 
 
  

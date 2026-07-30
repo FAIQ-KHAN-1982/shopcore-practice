@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from fastapi import Request, HTTPException, status
 from App.Models import User
-from App.Schemas import RegisterRequest, LoginRequest, LoginResponse, TokenRefreshRequest
+from App.Schemas import RegisterRequest, LoginRequest, LoginResponse, UserResponse
 from App.Security import hash_password, create_verification_token, verify_password, create_access_token, create_refresh_token, rotate_refresh_token, MAX_LOGIN_ATTEMPTS, REQUIRE_EMAIL_VERIFICATION
 from App.Services.email_service import send_new_device_login_alert, send_lockout_alert_email
 
@@ -113,5 +113,6 @@ def login_user(request: Request, login_data: LoginRequest, db: Session):
         access_token=access_token,
         refresh_token=refresh_token,
         token_type="bearer",
-        user=user
+        user=UserResponse.model_validate(user)
     )
+

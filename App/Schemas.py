@@ -1,5 +1,5 @@
 import re
-from typing import Optional, List
+from typing import Optional
 from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 
 class RegisterRequest(BaseModel):
@@ -93,16 +93,22 @@ class ChangePasswordRequest(BaseModel):
             raise ValueError("Must contain 1 special character")
         return v
 
-class resendingtoken(BaseModel):
+class ResendVerificationTokenRequest(BaseModel):
     email: EmailStr
 
-class update_profile(BaseModel):
+class UpdateProfileRequest(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     phone: Optional[str] = None
 
-class feilds_for_address(BaseModel):
+class FieldsForAddress(BaseModel):
     full_name: str
     phone: str
     address_line_1: str
     city: str
+
+# Backward compatibility aliases
+resendingtoken = ResendVerificationTokenRequest
+update_profile = UpdateProfileRequest
+feilds_for_address = FieldsForAddress
+
