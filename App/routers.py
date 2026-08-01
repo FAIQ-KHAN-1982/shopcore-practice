@@ -92,7 +92,7 @@ def verify(token: str, db: Session = Depends(get_db)):
 def register(user: RegisterRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     try:
         new_user, token = create_user(db, user)
-        background_tasks.add_task(send_verification_email, str(new_user.email), token)
+        background_tasks.add_task(send_verification_email, new_user.email, token)
         return new_user
 
     except ValueError as e:
@@ -114,12 +114,12 @@ def resend_verification_token_endpoint(data: ResendVerificationTokenRequest, db:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User is already verified"
         )
-    verification_token = create_verification_token(str(user.email))
+    verification_token = create_verification_token(user.email)
     user.verification_token = verification_token
     user.token_expires_at = datetime.now(timezone.utc) + timedelta(days=1)
     db.commit()
     db.refresh(user)
-    send_verification_email(str(user.email), verification_token)
+    send_verification_email(user.email, verification_token)
     return {"message": "Verification token sent successfully"}
 
 
@@ -182,7 +182,7 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
         user.reset_token_expires_at = expires_at.replace(tzinfo=None)
         db.commit()
         
-        send_reset_password_email(str(user.email), reset_token)
+        send_reset_password_email(user.email, reset_token)
         
     return {"message": "If this email exists, a password reset link has been sent."}
 
@@ -217,11 +217,7 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
     revoke_all_user_tokens(db, user.id)
     db.commit()
     
-    send_email_template(
-        str(user.email),
-        "ShopCore Password Changed",
-        "Your password has been successfully reset. If you did not make this change, please contact support."
-    )
+    send_email_template(user.email, "ShopCore Password Changed", "Your password has been successfully reset. If you did not make this change, please contact support.")
     
     return {"message": "Password reset successfully. You can now log in."}
 
@@ -265,7 +261,7 @@ def update_profile(data: UpdateProfileRequest, current_user: User = Depends(get_
     db.refresh(current_user)
     return current_user
 
-@router.delete("/users/me", tags=["User"])
+@router.delete("/users/me", tags=["User"]) # adding feature of deleting everything related to a user (i.e address, refresh_token)
 def delete_account(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     db.delete(current_user)
     db.commit()

@@ -72,7 +72,7 @@ def login_user(request: Request, login_data: LoginRequest, db: Session):
             user.is_locked = True
             user.locked_until = now + timedelta(minutes=15)
             db.commit()
-            send_lockout_alert_email(str(user.email))
+            send_lockout_alert_email(user.email)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Account locked due to {MAX_LOGIN_ATTEMPTS} failed attempts. Lock expires in 15 minutes."
@@ -93,7 +93,7 @@ def login_user(request: Request, login_data: LoginRequest, db: Session):
     
     # Detect login from new device/location
     if user.last_login_ip and user.last_login_ip != ip_address:
-        send_new_device_login_alert(str(user.email), ip_address)
+        send_new_device_login_alert(user.email, ip_address)
     
     # Reset security fields
     user.failed_login_attempts = 0
@@ -103,7 +103,7 @@ def login_user(request: Request, login_data: LoginRequest, db: Session):
     user.last_login_ip = ip_address
     
     # Generate token pair
-    access_token = create_access_token(str(user.email))
+    access_token = create_access_token(user.email)
     refresh_token = create_refresh_token(db, user.id, ip_address)
     
     db.commit()
