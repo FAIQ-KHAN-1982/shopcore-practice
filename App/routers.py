@@ -7,9 +7,9 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 
-from App.Services.User_service import add_address
+from App.Services.User_service import add_address, show_my_address
 from App.Database_Setup import get_db
-from App.Models import User, RefreshToken
+from App.Models import User, RefreshToken, Address
 from App.Schemas import (
     RegisterRequest,
     LoginRequest,
@@ -271,6 +271,10 @@ def delete_account(current_user: User = Depends(get_current_user), db: Session =
 def address_adding(data: FieldsForAddress, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     add_address(data, current_user.id, db)
     return {"message": "Address added successfully"}
+
+@router.get("/users/me/add_address", tags=["User"])
+def show_address(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return show_my_address(current_user, db)
 
 
 
