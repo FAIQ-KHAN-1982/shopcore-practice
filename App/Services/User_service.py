@@ -37,3 +37,18 @@ def show_my_address(current_user: User, db: Session):
         }
         for address in data
     ]
+
+def delete_address_by_id(address_id: int, current_user: User, db: Session):
+    address = db.query(Address).filter(
+        Address.id == address_id,
+        Address.user_id == current_user.id
+    ).first()
+
+    if not address:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Address not found"
+        )
+
+    db.delete(address)
+    db.commit()
