@@ -52,3 +52,29 @@ def delete_address_by_id(address_id: int, current_user: User, db: Session):
 
     db.delete(address)
     db.commit()
+
+def update_address_by_id(data:feilds_for_address, address_id: int, current_user: User, db: Session):
+    address = db.query(Address).filter(
+        Address.id == address_id,
+        Address.user_id == current_user.id
+    ).first()
+
+    if not address:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Address not found"
+        )
+    
+    if data.full_name:
+        address.full_name = data.full_name
+    if data.phone:
+        address.phone = data.phone
+    if data.address_line_1:
+        address.address_line_1 = data.address_line_1
+    if data.city:
+        address.city = data.city
+
+    db.commit()
+    db.refresh(address)
+    return address 
+

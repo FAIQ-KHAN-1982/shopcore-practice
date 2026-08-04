@@ -7,7 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 
-from App.Services.User_service import add_address, show_my_address, delete_address_by_id
+from App.Services.User_service import add_address, show_my_address, delete_address_by_id, update_address_by_id
 from App.Database_Setup import get_db
 from App.Models import User, RefreshToken, Address
 from App.Schemas import (
@@ -281,19 +281,6 @@ def delete_address(address_id: int, current_user: User = Depends(get_current_use
     delete_address_by_id(address_id, current_user, db)
     return {"message": "Address deleted successfully"}
 
-
-
-
-
-
-
-
-
- 
-    
-
-
-
-
-
-
+@router.put("/users/me/addresses/{address_id}", tags=["User"])
+def update_address(data: FieldsForAddress ,address_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return update_address_by_id(data, address_id, current_user, db)
