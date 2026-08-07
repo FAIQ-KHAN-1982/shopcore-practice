@@ -248,7 +248,6 @@ def my_profile(current_user: User = Depends(get_current_user)):
         "phone": current_user.phone,
     }
 
-
 @router.put("/users/me", response_model=UserResponse, tags=["User"])
 def update_profile(data: UpdateProfileRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if data.first_name:
@@ -269,6 +268,12 @@ def delete_account(current_user: User = Depends(get_current_user), db: Session =
 
 @router.post("/users/me/addresses", tags=["User"])
 def address_adding(data: FieldsForAddress, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    addresses = db.query(Address).filter(Address.user_id == current_user.id).all() # count() instead of all() also gets the job done, there will be no need for len().
+    if len(addresses) >= 10:
+        raise HTTPException(
+            status_code=400,
+            detail="You can only have a maximum of 10 addresses."
+        )
     add_address(data, current_user.id, db)
     return {"message": "Address added successfully"}
 
