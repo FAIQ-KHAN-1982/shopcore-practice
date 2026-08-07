@@ -3,8 +3,6 @@ from App.Models import Address, User
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
-
-
 def add_address(data: feilds_for_address, data_user_id: int, db: Session):
 
     new_address = Address(

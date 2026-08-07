@@ -18,3 +18,8 @@ pydantic==2.13.4
 
 # Environment Variables
 python-dotenv==1.2.2
+
+# Testing
+pytest==8.3.4
+httpx==0.28.1
+
