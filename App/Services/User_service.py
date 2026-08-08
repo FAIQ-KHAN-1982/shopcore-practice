@@ -1,4 +1,4 @@
-from App.Schemas import feilds_for_address
+from App.Schemas import feilds_for_address, defaultaddress
 from App.Models import Address, User
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -76,14 +76,15 @@ def update_address_by_id(data:feilds_for_address, address_id: int, current_user:
     db.refresh(address)
     return address 
 
-def default_address(address_id: int, current_user:User, db: Session):
+def default_address(data: defaultaddress, address_id: int, current_user: User, db: Session):
     the_address = db.query(Address).filter(Address.id == address_id, Address.user_id == current_user.id).first()
+    
     if not the_address:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Address not found"
         )
-    the_address.default = True
+    the_address.default = data.default
     db.commit()
     db.refresh(the_address)
     return the_address

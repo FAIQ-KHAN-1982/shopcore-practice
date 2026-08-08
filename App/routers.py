@@ -293,6 +293,6 @@ def update_address(data: FieldsForAddress ,address_id: int, current_user: User =
     return update_address_by_id(data, address_id, current_user, db)
 
 @router.put("/users/me/addresses/{address_id}/default", tags=["User"])
-def default_the_address(address_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return default_address(address_id, current_user, db)
+def default_the_address(data: defaultaddress, address_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return default_address(data, address_id, current_user, db)
 
