@@ -7,7 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 
-from App.Services.User_service import add_address, show_my_address, delete_address_by_id, update_address_by_id
+from App.Services.User_service import add_address, show_my_address, delete_address_by_id, update_address_by_id, default_address
 from App.Database_Setup import get_db
 from App.Models import User, RefreshToken, Address
 from App.Schemas import (
@@ -21,7 +21,8 @@ from App.Schemas import (
     ChangePasswordRequest,
     ResendVerificationTokenRequest,
     UpdateProfileRequest,
-    FieldsForAddress
+    FieldsForAddress,
+    defaultaddress
 )
 from App.Security import (
     SECRET_KEY,
@@ -40,7 +41,8 @@ from App.Services import (
     send_verification_email,
     send_reset_password_email,
     login_user,
-    send_email_template
+    send_email_template,
+    
 )
 
 router = APIRouter()
@@ -289,3 +291,8 @@ def delete_address(address_id: int, current_user: User = Depends(get_current_use
 @router.put("/users/me/addresses/{address_id}", tags=["User"])
 def update_address(data: FieldsForAddress ,address_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return update_address_by_id(data, address_id, current_user, db)
+
+@router.put("/users/me/addresses/{address_id}/default", tags=["User"])
+def default_the_address(address_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return default_address(address_id, current_user, db)
+

@@ -1,3 +1,4 @@
+from pydantic_core.core_schema import nullable_schema
 from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy import String, ForeignKey
@@ -51,4 +52,5 @@ class Address(Base):
     phone: Mapped[str] = mapped_column(String, nullable=False)
     address_line_1: Mapped[str] = mapped_column(String, nullable=False)
     city: Mapped[str] = mapped_column(String, nullable=False)
+    default: Mapped[bool] = mapped_column(default=False, nullable=False)
 

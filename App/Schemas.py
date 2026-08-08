@@ -112,3 +112,6 @@ resendingtoken = ResendVerificationTokenRequest
 update_profile = UpdateProfileRequest
 feilds_for_address = FieldsForAddress
 
+class defaultaddress(BaseModel):
+    default: bool
+
