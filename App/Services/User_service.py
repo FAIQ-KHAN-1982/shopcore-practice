@@ -84,6 +84,13 @@ def default_address(data: defaultaddress, address_id: int, current_user: User, d
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Address not found"
         )
+    
+    # Un-default all other addresses for this user
+    db.query(Address).filter(
+        Address.user_id == current_user.id,
+        Address.id != address_id
+    ).update({"default": False}, synchronize_session=False)
+    
     the_address.default = data.default
     db.commit()
     db.refresh(the_address)
