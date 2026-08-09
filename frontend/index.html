@@ -3,22 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ShopCore – Auth</title>
-  <meta name="description" content="ShopCore user authentication portal. Register, log in, and verify your account." />
+  <title>ShopCore – eCommerce API Hub</title>
+  <meta name="description" content="ShopCore user authentication, profile management, and address book portal." />
 
   <!-- Google Font: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
-    rel="stylesheet"
-  />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Our stylesheet -->
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-  <!-- Background decorative orbs -->
+  <!-- Decorative background Orbs -->
   <div class="bg-orb orb-1"></div>
   <div class="bg-orb orb-2"></div>
   <div class="bg-orb orb-3"></div>
@@ -27,34 +24,41 @@
        NAVBAR
   ==================================================== -->
   <nav class="navbar">
-    <div class="nav-logo">
+    <div class="nav-logo" onclick="navigateToDefault()">
       <span class="logo-icon">◈</span>
       <span class="logo-text">ShopCore</span>
     </div>
-    <div class="nav-tabs" id="nav-tabs-container">
-      <button id="tab-register" class="tab-btn active" onclick="showTab('register')">Register</button>
-      <button id="tab-login"    class="tab-btn"        onclick="showTab('login')">Login</button>
+
+    <div class="nav-right">
+      <div class="nav-tabs" id="nav-tabs-container">
+        <button id="tab-register" class="tab-btn active" onclick="showTab('register')">Register</button>
+        <button id="tab-login" class="tab-btn" onclick="showTab('login')">Login</button>
+      </div>
+
+      <!-- Authenticated user chip (shown post-login) -->
+      <div id="user-chip" class="user-chip hidden" onclick="showTab('dashboard')">
+        <div class="chip-avatar" id="chip-avatar-initials">U</div>
+        <span id="chip-user-name">User</span>
+      </div>
     </div>
   </nav>
 
   <!-- ====================================================
-       MAIN CONTENT
+       MAIN CONTENT WRAPPER
   ==================================================== -->
   <main class="main-wrapper">
 
     <!-- ══════════════════════════════════════════════════
-         REGISTER PANEL
-         API: POST /auth/register
-         Called in: app.js → registerUser()
+         1. REGISTER PANEL
     ══════════════════════════════════════════════════ -->
-    <section id="panel-register" class="panel active">
+    <section id="panel-register" class="panel">
       <div class="card">
         <div class="card-header">
           <h1 class="card-title">Create account</h1>
-          <p class="card-subtitle">Join ShopCore and start shopping smarter.</p>
+          <p class="card-subtitle">Join ShopCore to experience seamless eCommerce APIs.</p>
         </div>
 
-        <form id="register-form" class="form" novalidate>
+        <form id="register-form" class="form" onsubmit="registerUser(event)">
           <div class="form-row">
             <div class="form-group">
               <label for="reg-first-name">First name</label>
@@ -73,19 +77,15 @@
 
           <div class="form-group">
             <label for="reg-phone">Phone <span class="optional">(optional)</span></label>
-            <input id="reg-phone" type="tel" placeholder="+1 555 000 0000" autocomplete="tel" />
+            <input id="reg-phone" type="tel" placeholder="+1 555 0192" autocomplete="tel" />
           </div>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label for="reg-role">Role <span class="hint">(For testing RBAC)</span></label>
-              <select id="reg-role" required style="width: 100%; padding: 0.8rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); color: var(--text);">
-                <option value="buyer">Buyer</option>
-                <option value="seller">Seller</option>
-                <option value="admin">Admin</option>
-                <option value="superadmin">Superadmin</option>
-              </select>
-            </div>
+          <div class="form-group">
+            <label for="reg-role">Account Role</label>
+            <select id="reg-role" required>
+              <option value="buyer">Buyer</option>
+              <option value="seller">Seller</option>
+            </select>
           </div>
 
           <div class="form-group">
@@ -99,46 +99,41 @@
                 required
                 oninput="updateStrength(this.value)"
               />
-              <button type="button" class="eye-btn" onclick="togglePassword('reg-password', this)" aria-label="Toggle password visibility">👁</button>
+              <button type="button" class="eye-btn" onclick="togglePassword('reg-password', this)" aria-label="Toggle password">👁</button>
             </div>
-            <p class="hint">Min 8 chars · 1 uppercase · 1 number · 1 special character</p>
+            <p class="hint">Min 8 chars · 1 uppercase · 1 number · 1 special char</p>
           </div>
 
-          <!-- Live password strength bar -->
           <div class="strength-wrap">
             <div class="strength-bar" id="strength-bar"></div>
           </div>
           <p class="strength-label" id="strength-label"></p>
 
-          <button id="register-btn" type="submit" class="btn-primary" onclick="registerUser(event)">
+          <button id="register-btn" type="submit" class="btn-primary">
             <span class="btn-text">Create account</span>
             <span class="spinner hidden" id="reg-spinner">⟳</span>
           </button>
         </form>
 
-        <!-- Success / error feedback for register -->
         <div id="register-toast" class="toast hidden"></div>
 
         <p class="switch-link">
-          Already have an account?
-          <a href="#" onclick="showTab('login')">Sign in</a>
+          Already have an account? <a href="#" onclick="showTab('login')">Sign in</a>
         </p>
       </div>
     </section>
 
     <!-- ══════════════════════════════════════════════════
-         LOGIN PANEL
-         API: POST /auth/login
-         Called in: app.js → loginUser()
+         2. LOGIN PANEL
     ══════════════════════════════════════════════════ -->
     <section id="panel-login" class="panel">
       <div class="card">
         <div class="card-header">
           <h1 class="card-title">Welcome back</h1>
-          <p class="card-subtitle">Sign in to your ShopCore account.</p>
+          <p class="card-subtitle">Sign in to manage your profile & address book.</p>
         </div>
 
-        <form id="login-form" class="form" novalidate>
+        <form id="login-form" class="form" onsubmit="loginUser(event)">
           <div class="form-group">
             <label for="login-email">Email address</label>
             <input id="login-email" type="email" placeholder="john@example.com" autocomplete="email" required />
@@ -148,54 +143,76 @@
             <label for="login-password">Password</label>
             <div class="input-wrapper">
               <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password" required />
-              <button type="button" class="eye-btn" onclick="togglePassword('login-password', this)" aria-label="Toggle password visibility">👁</button>
+              <button type="button" class="eye-btn" onclick="togglePassword('login-password', this)" aria-label="Toggle password">👁</button>
             </div>
           </div>
 
-          <div style="text-align: right; margin-bottom: 1rem; margin-top: -0.5rem;">
-            <a href="#" onclick="showTab('forgot')" style="font-size: 0.85rem; color: var(--accent); text-decoration: none;">Forgot password?</a>
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem;">
+            <a href="#" onclick="showTab('resend')" style="color: var(--text-muted)">Unverified? Resend email</a>
+            <a href="#" onclick="showTab('forgot')">Forgot password?</a>
           </div>
 
-          <button id="login-btn" type="submit" class="btn-primary" onclick="loginUser(event)">
+          <button id="login-btn" type="submit" class="btn-primary" style="margin-top:1rem;">
             <span class="btn-text">Sign in</span>
             <span class="spinner hidden" id="login-spinner">⟳</span>
           </button>
-
-          <button id="google-login-btn" type="button" class="btn-outline" style="margin-top: 0.8rem; width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="initiateGoogleLogin()">
-            <span>🌐</span>
-            <span class="btn-text">Sign in with Google (Mock OAuth)</span>
-          </button>
         </form>
 
-        <!-- Success / error feedback for login -->
         <div id="login-toast" class="toast hidden"></div>
 
         <p class="switch-link">
-          Don't have an account?
-          <a href="#" onclick="showTab('register')">Register</a>
+          Don't have an account? <a href="#" onclick="showTab('register')">Register</a>
         </p>
       </div>
     </section>
 
     <!-- ══════════════════════════════════════════════════
-         FORGOT PASSWORD PANEL
-         API: POST /auth/forgot-password
-         Called in: app.js → forgotPassword()
+         3. RESEND VERIFICATION PANEL
+    ══════════════════════════════════════════════════ -->
+    <section id="panel-resend" class="panel">
+      <div class="card">
+        <div class="card-header">
+          <h1 class="card-title">Resend verification</h1>
+          <p class="card-subtitle">Enter your email to receive a new verification link.</p>
+        </div>
+
+        <form id="resend-form" class="form" onsubmit="resendVerificationToken(event)">
+          <div class="form-group">
+            <label for="resend-email">Email address</label>
+            <input id="resend-email" type="email" placeholder="john@example.com" required />
+          </div>
+
+          <button id="resend-btn" type="submit" class="btn-primary">
+            <span class="btn-text">Resend verification email</span>
+            <span class="spinner hidden" id="resend-spinner">⟳</span>
+          </button>
+        </form>
+
+        <div id="resend-toast" class="toast hidden"></div>
+
+        <p class="switch-link">
+          Back to <a href="#" onclick="showTab('login')">Sign in</a>
+        </p>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════
+         4. FORGOT PASSWORD PANEL
     ══════════════════════════════════════════════════ -->
     <section id="panel-forgot" class="panel">
       <div class="card">
         <div class="card-header">
           <h1 class="card-title">Reset password</h1>
-          <p class="card-subtitle">Enter your email and we'll send you a password reset link.</p>
+          <p class="card-subtitle">Enter your email and we'll send a password reset link.</p>
         </div>
 
-        <form id="forgot-form" class="form" novalidate>
+        <form id="forgot-form" class="form" onsubmit="forgotPassword(event)">
           <div class="form-group">
             <label for="forgot-email">Email address</label>
             <input id="forgot-email" type="email" placeholder="john@example.com" required />
           </div>
 
-          <button id="forgot-btn" type="submit" class="btn-primary" onclick="forgotPassword(event)">
+          <button id="forgot-btn" type="submit" class="btn-primary">
             <span class="btn-text">Send reset link</span>
             <span class="spinner hidden" id="forgot-spinner">⟳</span>
           </button>
@@ -204,27 +221,27 @@
         <div id="forgot-toast" class="toast hidden"></div>
 
         <p class="switch-link">
-          Remember your password?
-          <a href="#" onclick="showTab('login')">Sign in</a>
+          Remembered your password? <a href="#" onclick="showTab('login')">Sign in</a>
         </p>
       </div>
     </section>
 
     <!-- ══════════════════════════════════════════════════
-         RESET PASSWORD PANEL
-         API: POST /auth/reset-password
-         Called in: app.js → resetPassword()
+         5. RESET PASSWORD PANEL (used with token)
     ══════════════════════════════════════════════════ -->
     <section id="panel-reset" class="panel">
       <div class="card">
         <div class="card-header">
-          <h1 class="card-title">Set new password</h1>
-          <p class="card-subtitle">Choose a secure password for your account.</p>
+          <h1 class="card-title">Choose new password</h1>
+          <p class="card-subtitle">Enter your token and set a new secure password.</p>
         </div>
 
-        <form id="reset-form" class="form" novalidate>
-          <input type="hidden" id="reset-token-input" />
-          
+        <form id="reset-form" class="form" onsubmit="resetPassword(event)">
+          <div class="form-group">
+            <label for="reset-token-input">Reset Token</label>
+            <input id="reset-token-input" type="text" placeholder="Paste reset token here" required />
+          </div>
+
           <div class="form-group">
             <label for="reset-password">New password</label>
             <div class="input-wrapper">
@@ -237,7 +254,6 @@
               />
               <button type="button" class="eye-btn" onclick="togglePassword('reset-password', this)">👁</button>
             </div>
-            <p class="hint">Min 8 chars · 1 uppercase · 1 number · 1 special character</p>
           </div>
 
           <div class="strength-wrap">
@@ -245,8 +261,8 @@
           </div>
           <p class="strength-label" id="reset-strength-label"></p>
 
-          <button id="reset-btn" type="submit" class="btn-primary" onclick="resetPassword(event)">
-            <span class="btn-text">Reset password</span>
+          <button id="reset-btn" type="submit" class="btn-primary">
+            <span class="btn-text">Set new password</span>
             <span class="spinner hidden" id="reset-spinner">⟳</span>
           </button>
         </form>
@@ -256,132 +272,232 @@
     </section>
 
     <!-- ══════════════════════════════════════════════════
-         GOOGLE OAUTH SIMULATOR PANEL
+         6. DASHBOARD PANEL
     ══════════════════════════════════════════════════ -->
-    <section id="panel-google-consent" class="panel">
-      <div class="card" style="border-top: 4px solid #4285f4;">
-        <div class="card-header" style="text-align: center;">
-          <span style="font-size: 3rem;">🌐</span>
-          <h1 class="card-title" style="margin-top:1rem;">Sign in with Google</h1>
-          <p class="card-subtitle">ShopCore wants to access your Google Account profile and email address.</p>
-        </div>
-
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: left;">
-          <label style="font-size: 0.85rem; font-weight:500; color: var(--text-muted); display:block; margin-bottom:0.5rem;">Choose a mock Google Account email prefix:</label>
-          <input type="text" id="google-mock-prefix" value="john.google" style="width:100%; padding:0.8rem 1rem; border-radius:8px; border:1px solid var(--border); background:var(--card-bg); color:var(--text); font-size:1rem;" oninput="document.getElementById('google-email-preview').textContent = this.value.trim() + '@gmail.com'" />
-          <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem;">This will register/login as <span id="google-email-preview">john.google@gmail.com</span></p>
-        </div>
-
-        <div style="display: flex; gap: 0.5rem;">
-          <button class="btn-primary" style="flex:1; background: #4285f4; border-color: #4285f4;" onclick="acceptGoogleConsent()">Agree & Continue</button>
-          <button class="btn-outline" style="flex:1;" onclick="showTab('login')">Cancel</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- ══════════════════════════════════════════════════
-         DASHBOARD PANEL  (shown after successful login)
-         No direct API call here — data was returned by /auth/login
-    ══════════════════════════════════════════════════ -->
-    <section id="panel-dashboard" class="panel">
+    <section id="panel-dashboard" class="panel wide">
       <div class="card dashboard-card">
 
-        <!-- User avatar (initials) -->
-        <div class="avatar" id="user-avatar"></div>
-
-        <h1 class="dashboard-name" id="dashboard-name">Hello!</h1>
-        <p class="dashboard-email" id="dashboard-email"></p>
+        <div class="avatar-large" id="user-avatar">U</div>
+        <h1 class="dashboard-name" id="dashboard-name">User Name</h1>
+        <p class="dashboard-email" id="dashboard-email">user@example.com</p>
 
         <div class="badge-row">
           <span class="badge" id="verify-badge">⏳ Unverified</span>
-          <span class="badge" id="role-badge" style="background: var(--accent); margin-left: 0.5rem;">buyer</span>
+          <span class="badge role" id="role-badge">buyer</span>
         </div>
 
-        <!-- Grid of user details -->
-        <div class="info-grid" id="user-info-grid"></div>
+        <div style="display:flex; justify-content:center; gap:0.5rem; margin-bottom:1.5rem;">
+          <button class="btn-secondary" onclick="openEditProfileModal()">✏️ Edit Profile</button>
+          <button class="btn-secondary" onclick="showTab('addresses')">📍 Manage Addresses (<span id="address-count-badge">0</span>)</button>
+        </div>
 
-        <!-- JWT token display -->
+        <!-- Info Grid -->
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">User ID</div>
+            <div class="info-value" id="info-id">--</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Phone Number</div>
+            <div class="info-value" id="info-phone">--</div>
+          </div>
+        </div>
+
+        <!-- Token Information -->
         <div class="token-box">
-          <p class="token-label">🔑 JWT Access Token</p>
-          <code class="token-value" id="token-value"></code>
+          <p class="token-label">🔑 Access Token (JWT)</p>
+          <code class="token-value" id="token-value">--</code>
         </div>
-        
-        <div class="token-box" style="margin-top:0.8rem;">
-          <p class="token-label">🔄 Opaque Refresh Token</p>
-          <code class="token-value" id="refresh-token-value"></code>
-        </div>
-
-        <!-- Token actions -->
-        <div style="display:flex; gap:0.5rem; margin-top:1rem;">
-          <button class="btn-outline" style="flex:1;" onclick="simulateTokenRefresh()">🔄 Rotate Token (Rotation Demo)</button>
+        <div class="token-box">
+          <p class="token-label">🔄 Refresh Token</p>
+          <code class="token-value" id="refresh-token-value">--</code>
         </div>
 
-        <!-- Change Password form -->
-        <details class="dashboard-section" style="margin-top: 1.5rem; text-align: left; background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border: 1px solid var(--border);">
-          <summary style="cursor: pointer; font-weight: 500; color: var(--text-muted); outline: none;">🔑 Change Password</summary>
-          <form id="change-password-form" style="margin-top: 1rem;" novalidate>
-            <div class="form-group" style="margin-bottom:0.8rem;">
+        <div style="display:flex; gap:0.5rem; margin-top:1rem; margin-bottom:1.5rem;">
+          <button class="btn-outline" style="flex:1;" onclick="simulateTokenRefresh()">🔄 Rotate Tokens</button>
+          <button class="btn-outline" style="flex:1;" onclick="toggleSection('change-password-section')">🔑 Change Password</button>
+        </div>
+
+        <!-- Collapsible Change Password Section -->
+        <div id="change-password-section" class="hidden" style="text-align:left; background:var(--bg-input); border:1px solid var(--border-color); padding:1.25rem; border-radius:var(--radius); margin-bottom:1.5rem;">
+          <h3 style="font-size:1rem; font-weight:600; margin-bottom:0.8rem; color:var(--text-primary);">Change Account Password</h3>
+          <form class="form" onsubmit="changePassword(event)">
+            <div class="form-group">
               <label for="change-old-password">Current Password</label>
-              <input id="change-old-password" type="password" placeholder="••••••••" required style="width:100%; padding:0.5rem; border:1px solid var(--border); border-radius:6px; background:var(--card-bg); color:var(--text);" />
+              <input id="change-old-password" type="password" placeholder="••••••••" required />
             </div>
-            <div class="form-group" style="margin-bottom:0.8rem;">
+            <div class="form-group">
               <label for="change-new-password">New Password</label>
-              <input id="change-new-password" type="password" placeholder="••••••••" required style="width:100%; padding:0.5rem; border:1px solid var(--border); border-radius:6px; background:var(--card-bg); color:var(--text);" />
+              <input id="change-new-password" type="password" placeholder="••••••••" required />
             </div>
-            <button type="submit" class="btn-primary" onclick="changePassword(event)" style="padding: 0.5rem 1rem; font-size:0.85rem; width:auto;">
-              <span class="btn-text">Update Password</span>
-            </button>
-            <div id="change-password-toast" class="toast hidden" style="margin-top: 0.5rem;"></div>
+            <button type="submit" class="btn-primary" style="width:auto; padding:0.6rem 1.2rem; font-size:0.875rem;">Update Password</button>
           </form>
-        </details>
-
-        <!-- RBAC testing area -->
-        <div class="dashboard-section" style="margin-top: 1.5rem; text-align: left; background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border: 1px solid var(--border);">
-          <h3 style="margin-bottom: 0.8rem; font-size: 1rem; color: var(--text);">◈ RBAC Authorization Tester</h3>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem;">
-            <button class="btn-outline" style="font-size:0.8rem; padding:0.5rem;" onclick="testSellerRoute()">Seller Portal</button>
-            <button class="btn-outline" style="font-size:0.8rem; padding:0.5rem;" onclick="testSellerModify(1)">Edit Resource #1</button>
-            <button class="btn-outline" style="font-size:0.8rem; padding:0.5rem;" onclick="testSellerModify(2)">Edit Resource #2</button>
-            <button class="btn-outline" style="font-size:0.8rem; padding:0.5rem;" onclick="testAdminRoute()">Admin Users List</button>
-          </div>
-          <div id="rbac-tester-logs" style="background: #000; font-family: monospace; font-size: 0.75rem; padding: 0.8rem; border-radius: 6px; color: #4ade80; max-height: 120px; overflow-y: auto; border: 1px solid var(--border); white-space: pre-wrap; word-break: break-all;">
-            Click a route above to test permissions...
-          </div>
+          <div id="change-password-toast" class="toast hidden"></div>
         </div>
 
-        <!-- Admin user list panel -->
-        <div id="admin-user-management" class="dashboard-section hidden" style="margin-top: 1.5rem; text-align: left; background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border: 1px solid var(--border);">
-          <h3 style="margin-bottom: 0.8rem; font-size: 1rem; color: var(--text);">🛠 Admin User Management</h3>
-          <div id="admin-users-container" style="overflow-x: auto; max-height: 200px; overflow-y: auto;">
-            Loading users...
-          </div>
-        </div>
-
-        <div style="display:flex; gap:0.5rem; margin-top:1.5rem; width:100%;">
+        <!-- Action buttons row -->
+        <div style="display:flex; gap:0.75rem; width:100%; margin-top:1rem;">
           <button class="btn-outline" style="flex:1;" onclick="logoutUser(false)">Sign out</button>
-          <button class="btn-outline" style="flex:1; border-color: #ef4444; color: #f87171;" onclick="logoutUser(true)">Sign out all devices</button>
+          <button class="btn-outline" style="flex:1; border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;" onclick="logoutUser(true)">Sign out all devices</button>
+          <button class="btn-danger" style="flex:1;" onclick="openDeleteAccountModal()">Delete Account</button>
         </div>
       </div>
     </section>
 
     <!-- ══════════════════════════════════════════════════
-         EMAIL VERIFICATION PANEL
-         Shown when the URL contains ?token=...
-         API: GET /auth/verify?token=<JWT>
-         Called in: app.js → handleVerifyToken()
+         7. ADDRESS BOOK PANEL
+    ══════════════════════════════════════════════════ -->
+    <section id="panel-addresses" class="panel wide">
+      <div class="card">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Address Book</h2>
+            <p class="card-subtitle">Manage up to 10 shipping & billing addresses.</p>
+          </div>
+          <button class="btn-primary" style="width:auto; padding:0.6rem 1.25rem;" onclick="openAddAddressModal()">+ Add Address</button>
+        </div>
+
+        <div id="addresses-container" class="address-grid">
+          <!-- Loaded dynamically via app.js -->
+        </div>
+
+        <div style="text-align:center; margin-top:1rem;">
+          <button class="btn-secondary" onclick="showTab('dashboard')">← Back to Dashboard</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════
+         8. EMAIL VERIFICATION LANDING PANEL
     ══════════════════════════════════════════════════ -->
     <section id="panel-verify" class="panel">
       <div class="card verify-card">
         <div class="verify-icon" id="verify-icon">🔄</div>
-        <h1 class="card-title" id="verify-title">Verifying your email…</h1>
-        <p class="card-subtitle" id="verify-msg">Please wait while we confirm your account.</p>
-        <button class="btn-primary" style="margin-top:1.8rem" onclick="showTab('login')">Go to Login</button>
+        <h1 class="card-title" id="verify-title">Verifying email…</h1>
+        <p class="card-subtitle" id="verify-msg">Please wait while we confirm your ShopCore account.</p>
+        <button class="btn-primary" style="margin-top:1.5rem" onclick="showTab('login')">Go to Sign in</button>
       </div>
     </section>
 
-  </main><!-- /.main-wrapper -->
+  </main>
 
-  <!-- Our JavaScript (must be at the bottom so the DOM is ready) -->
+  <!-- ====================================================
+       MODALS
+  ==================================================== -->
+
+  <!-- EDIT PROFILE MODAL -->
+  <div id="modal-edit-profile" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit Profile</h3>
+        <button class="close-btn" onclick="closeModal('modal-edit-profile')">&times;</button>
+      </div>
+      <form class="form" onsubmit="updateProfile(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-first-name">First name</label>
+            <input id="edit-first-name" type="text" required />
+          </div>
+          <div class="form-group">
+            <label for="edit-last-name">Last name</label>
+            <input id="edit-last-name" type="text" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="edit-phone">Phone number</label>
+          <input id="edit-phone" type="tel" placeholder="+1 555 0192" />
+        </div>
+        <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+          <button type="submit" class="btn-primary" style="flex:1;">Save Changes</button>
+          <button type="button" class="btn-secondary" style="flex:1;" onclick="closeModal('modal-edit-profile')">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADD ADDRESS MODAL -->
+  <div id="modal-add-address" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Add New Address</h3>
+        <button class="close-btn" onclick="closeModal('modal-add-address')">&times;</button>
+      </div>
+      <form class="form" onsubmit="saveAddress(event)">
+        <div class="form-group">
+          <label for="addr-full-name">Full Name</label>
+          <input id="addr-full-name" type="text" placeholder="John Doe" required />
+        </div>
+        <div class="form-group">
+          <label for="addr-phone">Phone Number</label>
+          <input id="addr-phone" type="tel" placeholder="+1 555 0192" required />
+        </div>
+        <div class="form-group">
+          <label for="addr-line1">Address Line 1</label>
+          <input id="addr-line1" type="text" placeholder="123 Main Street, Apt 4B" required />
+        </div>
+        <div class="form-group">
+          <label for="addr-city">City</label>
+          <input id="addr-city" type="text" placeholder="New York" required />
+        </div>
+        <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+          <button type="submit" class="btn-primary" style="flex:1;">Add Address</button>
+          <button type="button" class="btn-secondary" style="flex:1;" onclick="closeModal('modal-add-address')">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- EDIT ADDRESS MODAL -->
+  <div id="modal-edit-address" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit Address</h3>
+        <button class="close-btn" onclick="closeModal('modal-edit-address')">&times;</button>
+      </div>
+      <form class="form" onsubmit="submitEditAddress(event)">
+        <input type="hidden" id="edit-addr-id" />
+        <div class="form-group">
+          <label for="edit-addr-full-name">Full Name</label>
+          <input id="edit-addr-full-name" type="text" required />
+        </div>
+        <div class="form-group">
+          <label for="edit-addr-phone">Phone Number</label>
+          <input id="edit-addr-phone" type="tel" required />
+        </div>
+        <div class="form-group">
+          <label for="edit-addr-line1">Address Line 1</label>
+          <input id="edit-addr-line1" type="text" required />
+        </div>
+        <div class="form-group">
+          <label for="edit-addr-city">City</label>
+          <input id="edit-addr-city" type="text" required />
+        </div>
+        <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+          <button type="submit" class="btn-primary" style="flex:1;">Update Address</button>
+          <button type="button" class="btn-secondary" style="flex:1;" onclick="closeModal('modal-edit-address')">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- DELETE ACCOUNT MODAL -->
+  <div id="modal-delete-account" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color:#ef4444;">⚠️ Delete Account</h3>
+        <button class="close-btn" onclick="closeModal('modal-delete-account')">&times;</button>
+      </div>
+      <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:1.5rem;">
+        Are you sure you want to delete your account? This will permanently remove your profile, tokens, and address book. This action cannot be undone.
+      </p>
+      <div style="display:flex; gap:0.5rem;">
+        <button class="btn-danger" style="flex:1;" onclick="confirmDeleteAccount()">Yes, Delete My Account</button>
+        <button class="btn-secondary" style="flex:1;" onclick="closeModal('modal-delete-account')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JavaScript File -->
   <script src="app.js"></script>
 </body>
 </html>

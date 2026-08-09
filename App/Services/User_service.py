@@ -28,10 +28,15 @@ def show_my_address(current_user: User, db: Session):
         )
     return [
         {
-            "Name": address.full_name,
-            "address": address.address_line_1,
+            "id": address.id,
+            "full_name": address.full_name,
             "phone": address.phone,
-            "city": address.city
+            "address_line_1": address.address_line_1,
+            "city": address.city,
+            "default": address.default,
+            # Backward compatibility aliases
+            "Name": address.full_name,
+            "address": address.address_line_1
         }
         for address in data
     ]

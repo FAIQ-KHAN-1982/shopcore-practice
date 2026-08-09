@@ -1,76 +1,200 @@
 /* =====================================================
-   app.js — ShopCore Frontend Logic
-   Beginner-friendly, no frameworks, vanilla JS only.
-
-   API ENDPOINTS USED:
-   ┌──────────────────────────────────────────────────────────┐
-   │  POST  /auth/register               → registerUser()     │
-   │  POST  /auth/login                  → loginUser()        │
-   │  GET   /auth/verify                 → handleVerifyToken()│
-   │  POST  /auth/refresh                → simulateTokenRefresh()│
-   │  POST  /auth/logout                 → logoutUser()       │
-   │  POST  /auth/forgot-password        → forgotPassword()   │
-   │  POST  /auth/reset-password         → resetPassword()    │
-   │  POST  /auth/change-password        → changePassword()   │
-   │  POST  /auth/oauth/google/callback  → acceptGoogleConsent()│
-   │  GET   /admin/users                 → renderAdminPanel() │
-   │  POST  /admin/users/{id}/lock       → lockUser()         │
-   │  POST  /admin/users/{id}/unlock     → unlockUser()       │
-   │  GET   /seller/dashboard            → testSellerRoute()  │
-   │  GET   /seller/products/{id}/modify → testSellerModify() │
-   └──────────────────────────────────────────────────────────┘
+   app.js — ShopCore Modern Frontend Logic
 ===================================================== */
 
-const API_BASE = "http://localhost:8000";
+// Auto-detect base URL dynamically: if opened on localhost:8000/app, API base is relative/localhost:8000
+const API_BASE = window.location.origin.includes(":8000")
+  ? window.location.origin
+  : "http://127.0.0.1:8000";
+
+// Global cache for addresses
+let cachedAddresses = [];
 
 // ─────────────────────────────────────────────────
-//  PANEL / TAB NAVIGATION
+//  INITIALIZATION & ROUTING ON LOAD
+// ─────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  // Check if URL has ?token=... (Email Verification)
+  const urlParams = new URLSearchParams(window.location.search);
+  const verifyToken = urlParams.get("token");
+
+  if (verifyToken) {
+    showTab("verify");
+    handleVerifyToken(verifyToken);
+    return;
+  }
+
+  // Check if user is already logged in
+  const user = getStoredUser();
+  const token = getAccessToken();
+
+  if (user && token) {
+    updateUserNavChip(user);
+    renderDashboard(user, token, getRefreshToken());
+    showTab("dashboard");
+  } else {
+    showTab("register");
+  }
+});
+
+// ─────────────────────────────────────────────────
+//  NAVIGATION & TAB SWITCHING
 // ─────────────────────────────────────────────────
 function showTab(name) {
-  // Hide every panel
+  // Hide all panels
   document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
-  // Remove "active" from all tab buttons
+  // Deactivate nav tab buttons
   document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
 
-  // Show the target panel
+  // Show target panel
   const panel = document.getElementById("panel-" + name);
   if (panel) panel.classList.add("active");
 
-  // Highlight the matching nav tab button (register / login only)
+  // Highlight matching tab button
   const btn = document.getElementById("tab-" + name);
   if (btn) btn.classList.add("active");
 
-  // Hide nav tabs container if not on register/login
+  // Control navbar tabs visibility
   const navTabs = document.getElementById("nav-tabs-container");
-  if (name === "dashboard" || name === "verify" || name === "forgot" || name === "reset" || name === "google-consent") {
-    navTabs.style.display = "none";
+  const userChip = document.getElementById("user-chip");
+  const token = getAccessToken();
+
+  if (token) {
+    if (navTabs) navTabs.style.display = "none";
+    if (userChip) userChip.classList.remove("hidden");
   } else {
-    navTabs.style.display = "flex";
+    if (navTabs) navTabs.style.display = "flex";
+    if (userChip) userChip.classList.add("hidden");
+  }
+
+  // If navigating to addresses, fetch fresh address book data
+  if (name === "addresses") {
+    fetchAddresses();
+  }
+}
+
+function navigateToDefault() {
+  if (getAccessToken()) {
+    showTab("dashboard");
+  } else {
+    showTab("register");
   }
 }
 
 // ─────────────────────────────────────────────────
-//  SHOW TOAST
+//  STORAGE HELPERS
 // ─────────────────────────────────────────────────
-function showToast(id, message, type) {
+function getAccessToken() {
+  return sessionStorage.getItem("access_token") || localStorage.getItem("access_token");
+}
+
+function getRefreshToken() {
+  return sessionStorage.getItem("refresh_token") || localStorage.getItem("refresh_token");
+}
+
+function getStoredUser() {
+  const raw = sessionStorage.getItem("user") || localStorage.getItem("user");
+  try {
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setSession(accessToken, refreshToken, user) {
+  sessionStorage.setItem("access_token", accessToken);
+  sessionStorage.setItem("refresh_token", refreshToken);
+  sessionStorage.setItem("user", JSON.stringify(user));
+  updateUserNavChip(user);
+}
+
+function clearSession() {
+  sessionStorage.clear();
+  localStorage.clear();
+  cachedAddresses = [];
+  const userChip = document.getElementById("user-chip");
+  if (userChip) userChip.classList.add("hidden");
+  showTab("login");
+}
+
+function updateUserNavChip(user) {
+  const chip = document.getElementById("user-chip");
+  const nameEl = document.getElementById("chip-user-name");
+  const avatarEl = document.getElementById("chip-avatar-initials");
+
+  if (!user || !chip) return;
+  chip.classList.remove("hidden");
+
+  const initials = ((user.first_name?.[0] || "") + (user.last_name?.[0] || "")).toUpperCase() || "U";
+  if (avatarEl) avatarEl.textContent = initials;
+  if (nameEl) nameEl.textContent = `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email;
+}
+
+// ─────────────────────────────────────────────────
+//  AUTHORIZED FETCH WRAPPER
+// ─────────────────────────────────────────────────
+async function apiFetch(endpoint, options = {}) {
+  const token = getAccessToken();
+  const headers = options.headers ? { ...options.headers } : {};
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  if (options.body && typeof options.body === "object" && !(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+    options.body = JSON.stringify(options.body);
+  }
+
+  options.headers = headers;
+
+  let response = await fetch(`${API_BASE}${endpoint}`, options);
+
+  // Auto-refresh token if 401 Unauthorized occurs
+  if (response.status === 401 && getRefreshToken()) {
+    const refreshed = await attemptTokenRefresh();
+    if (refreshed) {
+      options.headers["Authorization"] = `Bearer ${getAccessToken()}`;
+      response = await fetch(`${API_BASE}${endpoint}`, options);
+    } else {
+      clearSession();
+      showToast("login-toast", "Session expired. Please log in again.", "error");
+      throw new Error("Session expired");
+    }
+  }
+
+  return response;
+}
+
+// ─────────────────────────────────────────────────
+//  TOAST & UTILS
+// ─────────────────────────────────────────────────
+function showToast(id, message, type = "info") {
   const el = document.getElementById(id);
   if (!el) return;
   el.textContent = message;
-  el.className = "toast " + type;   // sets color class
+  el.className = `toast ${type}`;
   el.classList.remove("hidden");
 
-  // Auto-hide after 5 seconds
   setTimeout(() => {
     el.classList.add("hidden");
     el.className = "toast hidden";
   }, 5000);
 }
 
-// ─────────────────────────────────────────────────
-//  TOGGLE PASSWORD VISIBILITY (👁)
-// ─────────────────────────────────────────────────
+function setLoading(btnId, spinnerId, loading) {
+  const btn = document.getElementById(btnId);
+  const spinner = document.getElementById(spinnerId);
+  if (!btn) return;
+  btn.disabled = loading;
+  if (spinner) {
+    if (loading) spinner.classList.remove("hidden");
+    else spinner.classList.add("hidden");
+  }
+}
+
 function togglePassword(inputId, btn) {
   const input = document.getElementById(inputId);
+  if (!input) return;
   if (input.type === "password") {
     input.type = "text";
     btn.textContent = "🙈";
@@ -80,80 +204,75 @@ function togglePassword(inputId, btn) {
   }
 }
 
+function toggleSection(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle("hidden");
+}
+
+function openModal(id) {
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.remove("hidden");
+}
+
+function closeModal(id) {
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.add("hidden");
+}
+
 // ─────────────────────────────────────────────────
-//  PASSWORD STRENGTH METER
+//  PASSWORD STRENGTH CALCULATOR
 // ─────────────────────────────────────────────────
 function calculateStrength(password) {
   let score = 0;
-  if (password.length >= 8)          score++;
-  if (/[A-Z]/.test(password))        score++;
-  if (/[0-9]/.test(password))        score++;
-  if (/[\W_]/.test(password))        score++;
+  if (password.length >= 8) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[\W_]/.test(password)) score++;
   return score;
 }
 
 function updateStrengthBar(score, barId, labelId) {
-  const bar   = document.getElementById(barId);
+  const bar = document.getElementById(barId);
   const label = document.getElementById(labelId);
   if (!bar || !label) return;
 
   const levels = [
-    { pct: "0%",   color: "transparent",   text: "" },
-    { pct: "25%",  color: "#f87171",        text: "Weak" },
-    { pct: "50%",  color: "#fbbf24",        text: "Fair" },
-    { pct: "75%",  color: "#60a5fa",        text: "Good" },
-    { pct: "100%", color: "#34d399",        text: "Strong ✓" },
+    { pct: "0%", color: "transparent", text: "" },
+    { pct: "25%", color: "#ef4444", text: "Weak" },
+    { pct: "50%", color: "#f59e0b", text: "Fair" },
+    { pct: "75%", color: "#38bdf8", text: "Good" },
+    { pct: "100%", color: "#10b981", text: "Strong ✓" },
   ];
 
-  const level = levels[score];
-  bar.style.width      = level.pct;
+  const level = levels[score] || levels[0];
+  bar.style.width = level.pct;
   bar.style.background = level.color;
-  label.textContent    = level.text;
-  label.style.color    = level.color;
+  label.textContent = level.text;
+  label.style.color = level.color;
 }
 
-function updateStrength(password) {
-  const score = calculateStrength(password);
-  updateStrengthBar(score, "strength-bar", "strength-label");
+function updateStrength(val) {
+  updateStrengthBar(calculateStrength(val), "strength-bar", "strength-label");
 }
 
-function updateResetStrength(password) {
-  const score = calculateStrength(password);
-  updateStrengthBar(score, "reset-strength-bar", "reset-strength-label");
-}
-
-// ─────────────────────────────────────────────────
-//  SET LOADING STATE
-// ─────────────────────────────────────────────────
-function setLoading(btnId, spinnerId, loading) {
-  const btn     = document.getElementById(btnId);
-  const spinner = document.getElementById(spinnerId);
-  if (!btn || !spinner) return;
-
-  btn.disabled = loading;
-  if (loading) {
-    spinner.classList.remove("hidden");
-    const textSpan = btn.querySelector(".btn-text");
-    if (textSpan) textSpan.style.opacity = "0.5";
-  } else {
-    spinner.classList.add("hidden");
-    const textSpan = btn.querySelector(".btn-text");
-    if (textSpan) textSpan.style.opacity = "1";
-  }
+function updateResetStrength(val) {
+  updateStrengthBar(calculateStrength(val), "reset-strength-bar", "reset-strength-label");
 }
 
 // ═════════════════════════════════════════════════
-//  API CALL — REGISTER
+//  AUTHENTICATION ACTIONS
 // ═════════════════════════════════════════════════
+
+// 1. REGISTER
 async function registerUser(event) {
   event.preventDefault();
 
-  const email      = document.getElementById("reg-email").value.trim();
-  const password   = document.getElementById("reg-password").value;
+  const email = document.getElementById("reg-email").value.trim();
+  const password = document.getElementById("reg-password").value;
   const first_name = document.getElementById("reg-first-name").value.trim();
-  const last_name  = document.getElementById("reg-last-name").value.trim();
-  const phone      = document.getElementById("reg-phone").value.trim() || null;
-  const role       = document.getElementById("reg-role").value;
+  const last_name = document.getElementById("reg-last-name").value.trim();
+  const phone = document.getElementById("reg-phone").value.trim() || null;
+  const role = document.getElementById("reg-role").value;
 
   if (!email || !password || !first_name || !last_name) {
     showToast("register-toast", "Please fill in all required fields.", "error");
@@ -163,41 +282,38 @@ async function registerUser(event) {
   setLoading("register-btn", "reg-spinner", true);
 
   try {
-    const response = await fetch(`${API_BASE}/auth/register`, {
+    const res = await fetch(`${API_BASE}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password, first_name, last_name, phone, role }),
     });
 
-    const data = await response.json();
+    const data = await res.json();
 
-    if (response.ok) {
+    if (res.ok) {
       showToast(
         "register-toast",
-        `🎉 Account created for ${data.first_name}! Verify your account via the link in the mock console log.`,
+        `🎉 Account created for ${data.first_name}! Check terminal/email for verification link.`,
         "success"
       );
       document.getElementById("register-form").reset();
       updateStrength("");
     } else {
-      const errMsg = data.detail || "Registration failed. Please try again.";
+      const errMsg = Array.isArray(data.detail) ? data.detail[0]?.msg : data.detail || "Registration failed.";
       showToast("register-toast", errMsg, "error");
     }
   } catch (err) {
-    showToast("register-toast", "Cannot reach the server. Is FastAPI running?", "error");
-    console.error("Register error:", err);
+    showToast("register-toast", "Cannot connect to server. Is FastAPI running?", "error");
   } finally {
     setLoading("register-btn", "reg-spinner", false);
   }
 }
 
-// ═════════════════════════════════════════════════
-//  API CALL — LOGIN
-// ═════════════════════════════════════════════════
+// 2. LOGIN
 async function loginUser(event) {
   event.preventDefault();
 
-  const email    = document.getElementById("login-email").value.trim();
+  const email = document.getElementById("login-email").value.trim();
   const password = document.getElementById("login-password").value;
 
   if (!email || !password) {
@@ -208,181 +324,64 @@ async function loginUser(event) {
   setLoading("login-btn", "login-spinner", true);
 
   try {
-    const response = await fetch(`${API_BASE}/auth/login`, {
+    const res = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
 
-    const data = await response.json();
+    const data = await res.json();
 
-    if (response.ok) {
-      sessionStorage.setItem("access_token", data.access_token);
-      sessionStorage.setItem("refresh_token", data.refresh_token);
-      sessionStorage.setItem("user", JSON.stringify(data.user));
-
+    if (res.ok) {
+      setSession(data.access_token, data.refresh_token, data.user);
       renderDashboard(data.user, data.access_token, data.refresh_token);
       showTab("dashboard");
-
       document.getElementById("login-form").reset();
     } else {
-      const errMsg = data.detail || "Login failed. Check your credentials.";
+      const errMsg = data.detail || "Login failed. Please check your credentials.";
       showToast("login-toast", errMsg, "error");
     }
   } catch (err) {
-    showToast("login-toast", "Cannot reach the server. Is FastAPI running?", "error");
-    console.error("Login error:", err);
+    showToast("login-toast", "Cannot connect to server. Is FastAPI running?", "error");
   } finally {
     setLoading("login-btn", "login-spinner", false);
   }
 }
 
-// ═════════════════════════════════════════════════
-//  API CALL — MOCK GOOGLE LOGIN
-// ═════════════════════════════════════════════════
-function initiateGoogleLogin() {
-  showTab("google-consent");
-}
+// 3. RESEND VERIFICATION TOKEN
+async function resendVerificationToken(event) {
+  event.preventDefault();
 
-async function acceptGoogleConsent() {
-  const prefix = document.getElementById("google-mock-prefix").value.trim();
-  if (!prefix) return;
-
-  const mockCode = prefix; // Representing email prefix in simulator
-
-  try {
-    const response = await fetch(`${API_BASE}/auth/oauth/google/callback`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: mockCode }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      sessionStorage.setItem("access_token", data.access_token);
-      sessionStorage.setItem("refresh_token", data.refresh_token);
-      sessionStorage.setItem("user", JSON.stringify(data.user));
-
-      renderDashboard(data.user, data.access_token, data.refresh_token);
-      showTab("dashboard");
-    } else {
-      alert("Google login failed: " + (data.detail || "Unknown error"));
-      showTab("login");
-    }
-  } catch (err) {
-    alert("Cannot reach backend server to complete Google OAuth.");
-    showTab("login");
-  }
-}
-
-// ─────────────────────────────────────────────────
-//  RENDER DASHBOARD
-// ─────────────────────────────────────────────────
-function renderDashboard(user, accessToken, refreshToken) {
-  // Initials for the avatar circle
-  const initials = (user.first_name?.[0] || "") + (user.last_name?.[0] || "");
-  document.getElementById("user-avatar").textContent = initials.toUpperCase();
-
-  // Name, email, verification & role
-  document.getElementById("dashboard-name").textContent = `Hello, ${user.first_name}! 👋`;
-  document.getElementById("dashboard-email").textContent = user.email;
-
-  const verifyBadge = document.getElementById("verify-badge");
-  if (user.is_verified) {
-    verifyBadge.textContent = "✅ Verified";
-    verifyBadge.className = "badge verified";
-  } else {
-    verifyBadge.textContent = "⏳ Unverified";
-    verifyBadge.className = "badge";
-  }
-
-  const roleBadge = document.getElementById("role-badge");
-  roleBadge.textContent = user.role.toUpperCase();
-  if (user.role === "admin" || user.role === "superadmin") {
-    roleBadge.style.background = "#8b5cf6"; // Purple for admins
-  } else if (user.role === "seller") {
-    roleBadge.style.background = "#3b82f6"; // Blue for sellers
-  } else {
-    roleBadge.style.background = "#10b981"; // Green for buyers
-  }
-
-  // Info grid (id, phone, status)
-  const grid = document.getElementById("user-info-grid");
-  grid.innerHTML = `
-    <div class="info-item">
-      <div class="info-label">User ID</div>
-      <div class="info-value">#${user.id}</div>
-    </div>
-    <div class="info-item">
-      <div class="info-label">Phone</div>
-      <div class="info-value">${user.phone || "—"}</div>
-    </div>
-    <div class="info-item">
-      <div class="info-label">Locked Status</div>
-      <div class="info-value">${user.is_locked ? "🔴 Locked" : "🟢 Active"}</div>
-    </div>
-    <div class="info-item">
-      <div class="info-label">Account Role</div>
-      <div class="info-value" style="text-transform: capitalize;">${user.role}</div>
-    </div>
-  `;
-
-  // Display the JWT token and Refresh Token
-  document.getElementById("token-value").textContent = accessToken;
-  document.getElementById("refresh-token-value").textContent = refreshToken || "N/A (Google Login / Session Stale)";
-
-  // Enable Admin Management panel if admin
-  const adminPanel = document.getElementById("admin-user-management");
-  if (user.role === "admin" || user.role === "superadmin") {
-    adminPanel.classList.remove("hidden");
-    renderAdminPanel();
-  } else {
-    adminPanel.classList.add("hidden");
-  }
-
-  // Reset RBAC tester log
-  document.getElementById("rbac-tester-logs").textContent = "Click a route above to test permissions...";
-}
-
-// ═════════════════════════════════════════════════
-//  API CALL — REFRESH TOKEN (Rotation)
-// ═════════════════════════════════════════════════
-async function simulateTokenRefresh() {
-  const refreshToken = sessionStorage.getItem("refresh_token");
-  if (!refreshToken) {
-    alert("No refresh token found. Please log in again.");
+  const email = document.getElementById("resend-email").value.trim();
+  if (!email) {
+    showToast("resend-toast", "Please enter your email.", "error");
     return;
   }
 
+  setLoading("resend-btn", "resend-spinner", true);
+
   try {
-    const response = await fetch(`${API_BASE}/auth/refresh`, {
+    const res = await fetch(`${API_BASE}/auth/resend_verfication_token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+      body: JSON.stringify({ email }),
     });
 
-    const data = await response.json();
+    const data = await res.json();
 
-    if (response.ok) {
-      sessionStorage.setItem("access_token", data.access_token);
-      sessionStorage.setItem("refresh_token", data.refresh_token);
-      
-      renderDashboard(data.user, data.access_token, data.refresh_token);
-      alert("✅ Token rotated successfully!\nOld refresh token is now invalidated.");
+    if (res.ok) {
+      showToast("resend-toast", data.message || "Verification email sent!", "success");
     } else {
-      alert("❌ Token refresh failed: " + (data.detail || "Your session may have expired."));
-      logoutUser(false);
+      showToast("resend-toast", data.detail || "Failed to resend token.", "error");
     }
   } catch (err) {
-    console.error("Refresh error:", err);
-    alert("Connection error during token refresh.");
+    showToast("resend-toast", "Network error.", "error");
+  } finally {
+    setLoading("resend-btn", "resend-spinner", false);
   }
 }
 
-// ═════════════════════════════════════════════════
-//  API CALL — FORGOT PASSWORD
-// ═════════════════════════════════════════════════
+// 4. FORGOT PASSWORD
 async function forgotPassword(event) {
   event.preventDefault();
 
@@ -395,340 +394,452 @@ async function forgotPassword(event) {
   setLoading("forgot-btn", "forgot-spinner", true);
 
   try {
-    const response = await fetch(`${API_BASE}/auth/forgot-password`, {
+    const res = await fetch(`${API_BASE}/auth/forgot-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
 
-    const data = await response.json();
+    const data = await res.json();
 
-    if (response.ok) {
-      showToast("forgot-toast", "🎉 Success! Check the mock console log for your reset password link.", "success");
-      document.getElementById("forgot-form").reset();
+    if (res.ok) {
+      showToast("forgot-toast", data.message, "success");
     } else {
-      showToast("forgot-toast", data.detail || "Failed to process request.", "error");
+      showToast("forgot-toast", data.detail || "Error requesting reset.", "error");
     }
   } catch (err) {
-    showToast("forgot-toast", "Cannot reach backend. Is FastAPI running?", "error");
+    showToast("forgot-toast", "Network error.", "error");
   } finally {
     setLoading("forgot-btn", "forgot-spinner", false);
   }
 }
 
-// ═════════════════════════════════════════════════
-//  API CALL — RESET PASSWORD
-// ═════════════════════════════════════════════════
+// 5. RESET PASSWORD
 async function resetPassword(event) {
   event.preventDefault();
 
-  const token = document.getElementById("reset-token-input").value;
+  const token = document.getElementById("reset-token-input").value.trim();
   const new_password = document.getElementById("reset-password").value;
 
   if (!token || !new_password) {
-    showToast("reset-toast", "Invalid reset code or password details.", "error");
+    showToast("reset-toast", "Please enter token and new password.", "error");
     return;
   }
 
   setLoading("reset-btn", "reset-spinner", true);
 
   try {
-    const response = await fetch(`${API_BASE}/auth/reset-password`, {
+    const res = await fetch(`${API_BASE}/auth/reset-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token, new_password }),
     });
 
-    const data = await response.json();
+    const data = await res.json();
 
-    if (response.ok) {
-      showToast("reset-toast", "✅ Password reset successfully! Redirecting to login in 3s...", "success");
-      document.getElementById("reset-form").reset();
-      
-      setTimeout(() => {
-        // Clear url params
-        window.history.replaceState({}, document.title, window.location.pathname);
-        showTab("login");
-      }, 3000);
+    if (res.ok) {
+      showToast("reset-toast", "Password reset successfully! You can now log in.", "success");
+      setTimeout(() => showTab("login"), 2000);
     } else {
-      showToast("reset-toast", data.detail || "Reset failed. The link may have expired.", "error");
+      showToast("reset-toast", data.detail || "Password reset failed.", "error");
     }
   } catch (err) {
-    showToast("reset-toast", "Cannot reach server.", "error");
+    showToast("reset-toast", "Network error.", "error");
   } finally {
     setLoading("reset-btn", "reset-spinner", false);
   }
 }
 
-// ═════════════════════════════════════════════════
-//  API CALL — CHANGE PASSWORD (Authenticated)
-// ═════════════════════════════════════════════════
+// 6. CHANGE PASSWORD
 async function changePassword(event) {
   event.preventDefault();
 
   const current_password = document.getElementById("change-old-password").value;
   const new_password = document.getElementById("change-new-password").value;
-  const token = sessionStorage.getItem("access_token");
 
   if (!current_password || !new_password) {
-    showToast("change-password-toast", "Please fill in passwords.", "error");
+    showToast("change-password-toast", "Please fill in all password fields.", "error");
     return;
   }
 
   try {
-    const response = await fetch(`${API_BASE}/auth/change-password`, {
+    const res = await apiFetch("/auth/change-password", {
       method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ current_password, new_password }),
+      body: { current_password, new_password },
     });
 
-    const data = await response.json();
+    const data = await res.json();
 
-    if (response.ok) {
-      showToast("change-password-toast", "✅ Password changed! All other sessions logged out.", "success");
-      document.getElementById("change-password-form").reset();
+    if (res.ok) {
+      showToast("change-password-toast", "Password updated successfully!", "success");
+      document.getElementById("change-old-password").value = "";
+      document.getElementById("change-new-password").value = "";
     } else {
       showToast("change-password-toast", data.detail || "Failed to change password.", "error");
     }
   } catch (err) {
-    showToast("change-password-toast", "Cannot connect to server.", "error");
+    showToast("change-password-toast", "Error changing password.", "error");
   }
 }
 
-// ═════════════════════════════════════════════════
-//  API CALL — LOGOUT
-// ═════════════════════════════════════════════════
-async function logoutUser(logoutEverywhere = false) {
-  const refreshToken = sessionStorage.getItem("refresh_token");
-  
+// 7. VERIFY EMAIL VIA LINK
+async function handleVerifyToken(token) {
+  const icon = document.getElementById("verify-icon");
+  const title = document.getElementById("verify-title");
+  const msg = document.getElementById("verify-msg");
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/verify?token=${encodeURIComponent(token)}`);
+    const data = await res.json();
+
+    if (res.ok) {
+      if (icon) icon.textContent = "✅";
+      if (title) title.textContent = "Email Verified!";
+      if (msg) msg.textContent = "Your account is verified. You can now sign in.";
+    } else {
+      if (icon) icon.textContent = "❌";
+      if (title) title.textContent = "Verification Failed";
+      if (msg) msg.textContent = data.detail || "Invalid or expired verification link.";
+    }
+  } catch (err) {
+    if (icon) icon.textContent = "⚠️";
+    if (title) title.textContent = "Connection Error";
+    if (msg) msg.textContent = "Could not reach the server.";
+  }
+}
+
+// 8. REFRESH TOKEN ROTATION
+async function attemptTokenRefresh() {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return false;
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      setSession(data.access_token, data.refresh_token, data.user);
+      renderDashboard(data.user, data.access_token, data.refresh_token);
+      return true;
+    }
+  } catch (e) {}
+
+  return false;
+}
+
+async function simulateTokenRefresh() {
+  const success = await attemptTokenRefresh();
+  if (success) {
+    alert("Token rotated successfully! New JWT access and refresh tokens have been issued.");
+  } else {
+    alert("Failed to rotate token. Please log in again.");
+    clearSession();
+  }
+}
+
+// 9. LOGOUT
+async function logoutUser(everywhere = false) {
+  const refreshToken = getRefreshToken();
   if (refreshToken) {
     try {
-      await fetch(`${API_BASE}/auth/logout?logout_everywhere=${logoutEverywhere}`, {
+      await fetch(`${API_BASE}/auth/logout?logout_everywhere=${everywhere}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh_token: refreshToken }),
       });
-    } catch (e) {
-      console.warn("Logout request failed:", e);
-    }
+    } catch (e) {}
   }
-
-  sessionStorage.removeItem("access_token");
-  sessionStorage.removeItem("refresh_token");
-  sessionStorage.removeItem("user");
-  showTab("login");
+  clearSession();
 }
 
 // ═════════════════════════════════════════════════
-//  API CALL — EMAIL VERIFICATION
+//  PROFILE MANAGEMENT
 // ═════════════════════════════════════════════════
-async function handleVerifyToken() {
-  const params = new URLSearchParams(window.location.search);
-  const token  = params.get("token");
 
+function renderDashboard(user, accessToken, refreshToken) {
+  const initials = ((user.first_name?.[0] || "") + (user.last_name?.[0] || "")).toUpperCase() || "U";
+  const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email;
+
+  document.getElementById("user-avatar").textContent = initials;
+  document.getElementById("dashboard-name").textContent = fullName;
+  document.getElementById("dashboard-email").textContent = user.email;
+  document.getElementById("info-id").textContent = `#${user.id}`;
+  document.getElementById("info-phone").textContent = user.phone || "Not provided";
+
+  // Verification badge
+  const vBadge = document.getElementById("verify-badge");
+  if (user.is_verified) {
+    vBadge.textContent = "✓ Verified";
+    vBadge.className = "badge verified";
+  } else {
+    vBadge.textContent = "⏳ Unverified";
+    vBadge.className = "badge";
+  }
+
+  // Role badge
+  const rBadge = document.getElementById("role-badge");
+  if (rBadge) rBadge.textContent = user.role;
+
+  // Tokens
+  document.getElementById("token-value").textContent = accessToken || "--";
+  document.getElementById("refresh-token-value").textContent = refreshToken || "--";
+
+  // Fetch address count
+  fetchAddresses();
+}
+
+function openEditProfileModal() {
+  const user = getStoredUser();
+  if (!user) return;
+  document.getElementById("edit-first-name").value = user.first_name || "";
+  document.getElementById("edit-last-name").value = user.last_name || "";
+  document.getElementById("edit-phone").value = user.phone || "";
+  openModal("modal-edit-profile");
+}
+
+async function updateProfile(event) {
+  event.preventDefault();
+
+  const first_name = document.getElementById("edit-first-name").value.trim();
+  const last_name = document.getElementById("edit-last-name").value.trim();
+  const phone = document.getElementById("edit-phone").value.trim() || null;
+
+  try {
+    const res = await apiFetch("/users/me", {
+      method: "PUT",
+      body: { first_name, last_name, phone },
+    });
+
+    const updatedUser = await res.json();
+
+    if (res.ok) {
+      setSession(getAccessToken(), getRefreshToken(), updatedUser);
+      renderDashboard(updatedUser, getAccessToken(), getRefreshToken());
+      closeModal("modal-edit-profile");
+      alert("Profile updated successfully!");
+    } else {
+      alert(updatedUser.detail || "Failed to update profile.");
+    }
+  } catch (err) {
+    alert("Network error updating profile.");
+  }
+}
+
+function openDeleteAccountModal() {
+  openModal("modal-delete-account");
+}
+
+async function confirmDeleteAccount() {
+  try {
+    const res = await apiFetch("/users/me", { method: "DELETE" });
+    if (res.ok) {
+      closeModal("modal-delete-account");
+      alert("Your account has been deleted.");
+      clearSession();
+    } else {
+      const data = await res.json();
+      alert(data.detail || "Failed to delete account.");
+    }
+  } catch (err) {
+    alert("Error deleting account.");
+  }
+}
+
+// ═════════════════════════════════════════════════
+//  ADDRESS BOOK MANAGEMENT
+// ═════════════════════════════════════════════════
+
+async function fetchAddresses() {
+  const token = getAccessToken();
   if (!token) return;
 
-  showTab("verify");
-
   try {
-    const response = await fetch(`${API_BASE}/auth/verify?token=${encodeURIComponent(token)}`);
-    const data     = await response.json();
-
-    const icon  = document.getElementById("verify-icon");
-    const title = document.getElementById("verify-title");
-    const msg   = document.getElementById("verify-msg");
-
-    if (response.ok) {
-      icon.textContent  = "✅";
-      title.textContent = "Email verified!";
-      msg.textContent   = data.message || "Your account is now active. You can log in.";
-    } else {
-      icon.textContent  = "❌";
-      title.textContent = "Verification failed";
-      msg.textContent   = data.detail || "The link may be expired or invalid.";
+    const res = await apiFetch("/users/me/addresses", { method: "GET" });
+    if (res.ok) {
+      cachedAddresses = await res.json();
+      renderAddressGrid(cachedAddresses);
+      const countEl = document.getElementById("address-count-badge");
+      if (countEl) countEl.textContent = cachedAddresses.length;
     }
-  } catch (err) {
-    document.getElementById("verify-icon").textContent  = "⚠️";
-    document.getElementById("verify-title").textContent = "Network error";
-    document.getElementById("verify-msg").textContent   = "Could not connect to the server.";
-  }
+  } catch (e) {}
 }
 
-// ═════════════════════════════════════════════════
-//  RBAC TESTING
-// ═════════════════════════════════════════════════
-async function makeAuthorizedRequest(url, method = "GET") {
-  const token = sessionStorage.getItem("access_token");
-  const logBox = document.getElementById("rbac-tester-logs");
+function renderAddressGrid(addresses) {
+  const container = document.getElementById("addresses-container");
+  if (!container) return;
 
-  logBox.textContent = `Sending ${method} ${url}...\n`;
-
-  try {
-    const response = await fetch(url, {
-      method: method,
-      headers: {
-        "Authorization": `Bearer ${token}`
-      }
-    });
-
-    const status = response.status;
-    const text = await response.text();
-    let jsonFormatted = text;
-    try {
-      jsonFormatted = JSON.stringify(JSON.parse(text), null, 2);
-    } catch {}
-
-    logBox.textContent = `Status: ${status}\nResponse:\n${jsonFormatted}`;
-  } catch (err) {
-    logBox.textContent = `Network error calling ${url}: ${err.message}`;
-  }
-}
-
-function testSellerRoute() {
-  makeAuthorizedRequest(`${API_BASE}/seller/dashboard`);
-}
-
-function testSellerModify(ownerId) {
-  makeAuthorizedRequest(`${API_BASE}/seller/products/${ownerId}/modify`);
-}
-
-function testAdminRoute() {
-  makeAuthorizedRequest(`${API_BASE}/admin/users`);
-}
-
-// ═════════════════════════════════════════════════
-//  ADMIN PANEL CONTROLS
-// ═════════════════════════════════════════════════
-async function renderAdminPanel() {
-  const container = document.getElementById("admin-users-container");
-  const token = sessionStorage.getItem("access_token");
-
-  try {
-    const response = await fetch(`${API_BASE}/admin/users`, {
-      headers: { "Authorization": `Bearer ${token}` }
-    });
-
-    if (!response.ok) {
-      container.innerHTML = `<span style="color:#f87171;">Failed to fetch users: status ${response.status}</span>`;
-      return;
-    }
-
-    const users = await response.json();
-
-    let html = `
-      <table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:0.5rem;">
-        <thead>
-          <tr style="border-bottom:1px solid var(--border); text-align:left; color:var(--text-muted);">
-            <th style="padding:0.4rem;">ID</th>
-            <th style="padding:0.4rem;">Email</th>
-            <th style="padding:0.4rem;">Role</th>
-            <th style="padding:0.4rem;">Verified</th>
-            <th style="padding:0.4rem;">Status</th>
-            <th style="padding:0.4rem; text-align:center;">Action</th>
-          </tr>
-        </thead>
-        <tbody>
+  if (!addresses || addresses.length === 0) {
+    container.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-muted);">
+        No saved addresses found. Click <strong>+ Add Address</strong> to create your first address.
+      </div>
     `;
+    return;
+  }
 
-    users.forEach(u => {
-      const statusText = u.is_locked ? "🔴 Locked" : "🟢 Active";
-      const actionButton = u.is_locked 
-        ? `<button class="btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; border-color:#34d399; color:#34d399;" onclick="unlockAdminUser(${u.id})">Unlock</button>`
-        : `<button class="btn-outline" style="padding:0.2rem 0.5rem; font-size:0.75rem; border-color:#f87171; color:#f87171;" onclick="lockAdminUser(${u.id})">Lock</button>`;
+  container.innerHTML = addresses
+    .map((addr) => {
+      const isDefault = addr.default;
+      const addrName = addr.full_name || addr.Name || "Address";
+      const addrLine = addr.address_line_1 || addr.address || "";
 
-      html += `
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-          <td style="padding:0.4rem;">#${u.id}</td>
-          <td style="padding:0.4rem; max-width:120px; overflow:hidden; text-overflow:ellipsis;">${u.email}</td>
-          <td style="padding:0.4rem; text-transform:capitalize;">${u.role}</td>
-          <td style="padding:0.4rem;">${u.is_verified ? "Yes" : "No"}</td>
-          <td style="padding:0.4rem;">${statusText}</td>
-          <td style="padding:0.4rem; text-align:center;">${actionButton}</td>
-        </tr>
+      return `
+        <div class="address-card ${isDefault ? "is-default" : ""}">
+          <div>
+            <div class="address-name">
+              ${escapeHtml(addrName)}
+              ${isDefault ? '<span class="default-tag">Default</span>' : ""}
+            </div>
+            <div class="address-line">${escapeHtml(addrLine)}</div>
+            <div class="address-line">${escapeHtml(addr.city)}</div>
+            <div class="address-phone">📞 ${escapeHtml(addr.phone)}</div>
+          </div>
+          <div class="address-actions">
+            ${
+              !isDefault && addr.id
+                ? `<button class="btn-secondary btn-xs" onclick="setDefaultAddress(${addr.id})">Make Default</button>`
+                : ""
+            }
+            ${
+              addr.id
+                ? `<button class="btn-secondary btn-xs" onclick="openEditAddressModal(${addr.id})">Edit</button>
+                   <button class="btn-danger btn-xs" onclick="deleteAddress(${addr.id})">Delete</button>`
+                : ""
+            }
+          </div>
+        </div>
       `;
-    });
-
-    html += `</tbody></table>`;
-    container.innerHTML = html;
-
-  } catch (err) {
-    container.innerHTML = `<span style="color:#f87171;">Connection error.</span>`;
-  }
+    })
+    .join("");
 }
 
-async function lockAdminUser(userId) {
-  const token = sessionStorage.getItem("access_token");
+function openAddAddressModal() {
+  if (cachedAddresses.length >= 10) {
+    alert("You can only have a maximum of 10 addresses.");
+    return;
+  }
+  document.getElementById("addr-full-name").value = "";
+  document.getElementById("addr-phone").value = "";
+  document.getElementById("addr-line1").value = "";
+  document.getElementById("addr-city").value = "";
+  openModal("modal-add-address");
+}
+
+async function saveAddress(event) {
+  event.preventDefault();
+
+  const full_name = document.getElementById("addr-full-name").value.trim();
+  const phone = document.getElementById("addr-phone").value.trim();
+  const address_line_1 = document.getElementById("addr-line1").value.trim();
+  const city = document.getElementById("addr-city").value.trim();
+
   try {
-    const response = await fetch(`${API_BASE}/admin/users/${userId}/lock`, {
+    const res = await apiFetch("/users/me/addresses", {
       method: "POST",
-      headers: { "Authorization": `Bearer ${token}` }
+      body: { full_name, phone, address_line_1, city },
     });
-    if (response.ok) {
-      renderAdminPanel();
+
+    const data = await res.json();
+
+    if (res.ok) {
+      closeModal("modal-add-address");
+      fetchAddresses();
     } else {
-      alert("Failed to lock user.");
+      alert(data.detail || "Failed to add address.");
     }
   } catch (err) {
-    console.error(err);
+    alert("Error adding address.");
   }
 }
 
-async function unlockAdminUser(userId) {
-  const token = sessionStorage.getItem("access_token");
+function openEditAddressModal(addressId) {
+  const addr = cachedAddresses.find((a) => a.id === addressId);
+  if (!addr) return;
+
+  document.getElementById("edit-addr-id").value = addr.id;
+  document.getElementById("edit-addr-full-name").value = addr.full_name || addr.Name || "";
+  document.getElementById("edit-addr-phone").value = addr.phone || "";
+  document.getElementById("edit-addr-line1").value = addr.address_line_1 || addr.address || "";
+  document.getElementById("edit-addr-city").value = addr.city || "";
+
+  openModal("modal-edit-address");
+}
+
+async function submitEditAddress(event) {
+  event.preventDefault();
+
+  const addressId = document.getElementById("edit-addr-id").value;
+  const full_name = document.getElementById("edit-addr-full-name").value.trim();
+  const phone = document.getElementById("edit-addr-phone").value.trim();
+  const address_line_1 = document.getElementById("edit-addr-line1").value.trim();
+  const city = document.getElementById("edit-addr-city").value.trim();
+
   try {
-    const response = await fetch(`${API_BASE}/admin/users/${userId}/unlock`, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${token}` }
+    const res = await apiFetch(`/users/me/addresses/${addressId}`, {
+      method: "PUT",
+      body: { full_name, phone, address_line_1, city },
     });
-    if (response.ok) {
-      renderAdminPanel();
+
+    if (res.ok) {
+      closeModal("modal-edit-address");
+      fetchAddresses();
     } else {
-      alert("Failed to unlock user.");
+      const data = await res.json();
+      alert(data.detail || "Failed to update address.");
     }
   } catch (err) {
-    console.error(err);
+    alert("Error updating address.");
   }
 }
 
-// ─────────────────────────────────────────────────
-//  PAGE INITIALISATION
-// ─────────────────────────────────────────────────
-window.addEventListener("DOMContentLoaded", () => {
-  const params = new URLSearchParams(window.location.search);
-  
-  // 1. Check for verification token in URL
-  if (params.get("token")) {
-    handleVerifyToken();
-    return;
-  }
+async function deleteAddress(addressId) {
+  if (!confirm("Are you sure you want to delete this address?")) return;
 
-  // 2. Check for forgot password reset_token in URL
-  if (params.get("reset_token")) {
-    const resetToken = params.get("reset_token");
-    showTab("reset");
-    document.getElementById("reset-token-input").value = resetToken;
-    return;
-  }
+  try {
+    const res = await apiFetch(`/users/me/addresses/${addressId}`, {
+      method: "DELETE",
+    });
 
-  // 3. Auto-login session recovery
-  const savedToken = sessionStorage.getItem("access_token");
-  const savedRefreshToken = sessionStorage.getItem("refresh_token");
-  const savedUser  = sessionStorage.getItem("user");
-  
-  if (savedToken && savedUser) {
-    try {
-      const user = JSON.parse(savedUser);
-      renderDashboard(user, savedToken, savedRefreshToken);
-      showTab("dashboard");
-    } catch {
-      sessionStorage.clear();
-      showTab("register");
+    if (res.ok) {
+      fetchAddresses();
+    } else {
+      const data = await res.json();
+      alert(data.detail || "Failed to delete address.");
     }
-    return;
+  } catch (err) {
+    alert("Error deleting address.");
   }
+}
 
-  showTab("register");
-});
+async function setDefaultAddress(addressId) {
+  try {
+    const res = await apiFetch(`/users/me/addresses/${addressId}/default`, {
+      method: "PUT",
+      body: { default: true },
+    });
+
+    if (res.ok) {
+      fetchAddresses();
+    } else {
+      const data = await res.json();
+      alert(data.detail || "Failed to set default address.");
+    }
+  } catch (err) {
+    alert("Error setting default address.");
+  }
+}
+
+// XSS SANITIZATION
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
