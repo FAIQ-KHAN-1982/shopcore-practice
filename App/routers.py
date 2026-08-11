@@ -275,7 +275,7 @@ def address_adding(data: FieldsForAddress, current_user: User = Depends(get_curr
         raise HTTPException(
             status_code=400,
             detail="You can only have a maximum of 10 addresses."
-        )
+        ) 
     add_address(data, current_user.id, db)
     return {"message": "Address added successfully"}
 
