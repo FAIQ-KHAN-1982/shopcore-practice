@@ -262,7 +262,7 @@ def update_profile(data: UpdateProfileRequest, current_user: User = Depends(get_
     db.refresh(current_user)
     return current_user
 
-@router.delete("/users/me", tags=["User"]) # adding feature of deleting everything related to a user (i.e address, refresh_token)
+@router.delete("/users/me", tags=["User"])
 def delete_account(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     db.delete(current_user)
     db.commit()
@@ -270,7 +270,7 @@ def delete_account(current_user: User = Depends(get_current_user), db: Session =
 
 @router.post("/users/me/addresses", tags=["User"])
 def address_adding(data: FieldsForAddress, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    addresses = db.query(Address).filter(Address.user_id == current_user.id).all() # count() instead of all() also gets the job done, there will be no need for len().
+    addresses = db.query(Address).filter(Address.user_id == current_user.id).all()
     if len(addresses) >= 10:
         raise HTTPException(
             status_code=400,
