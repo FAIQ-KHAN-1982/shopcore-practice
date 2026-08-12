@@ -26,7 +26,7 @@ class RegisterRequest(BaseModel):
     @field_validator("role")
     @classmethod
     def validate_role(cls, v):
-        allowed_roles = ["buyer", "seller", "admin","superadmin"]
+        allowed_roles = ["buyer", "seller", "admin", "superadmin"]
         if v not in allowed_roles:
             raise ValueError(f"Role must be one of {allowed_roles}")
         return v
