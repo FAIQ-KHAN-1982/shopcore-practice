@@ -33,7 +33,8 @@ from App.Security import (
     revoke_refresh_token,
     revoke_all_user_tokens,
     get_current_user,
-    create_verification_token
+    create_verification_token,
+    RoleChecker
 )
 from App.Services import (
     get_user_by_email,
@@ -248,6 +249,7 @@ def my_profile(current_user: User = Depends(get_current_user)):
         "first_name": current_user.first_name,
         "last_name": current_user.last_name,
         "phone": current_user.phone,
+        "role": current_user.role
     }
 
 @router.put("/users/me", response_model=UserResponse, tags=["User"])
@@ -268,7 +270,9 @@ def delete_account(current_user: User = Depends(get_current_user), db: Session =
     db.commit()
     return {"message": "Account deleted successfully"}
 
-@router.post("/users/me/addresses", tags=["User"])
+"""dependencies=[Depends(RoleChecker(["admin", "superadmin"])],"""
+
+@router.post("/users/me/addresses",dependencies=[Depends(RoleChecker(["buyer"]))], tags=["User"])
 def address_adding(data: FieldsForAddress, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     addresses = db.query(Address).filter(Address.user_id == current_user.id).all()
     if len(addresses) >= 10:
@@ -295,4 +299,3 @@ def update_address(data: FieldsForAddress ,address_id: int, current_user: User =
 @router.put("/users/me/addresses/{address_id}/default", tags=["User"])
 def default_the_address(data: defaultaddress, address_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return default_address(data, address_id, current_user, db)
-

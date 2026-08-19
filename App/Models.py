@@ -14,7 +14,7 @@ class User(Base):
     first_name: Mapped[str] = mapped_column(String, nullable=False)
     last_name: Mapped[str] = mapped_column(String, nullable=False)
     phone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    role: Mapped[str] = mapped_column(String, default="buyer", nullable=False)  # "buyer", "seller","admin", "superadmin"
+    role: Mapped[str] = mapped_column(String, default="buyer", nullable=False)  # Enum("buyer", "seller", "admin", "superadmin"), default="buyer", nullable=False
     is_verified: Mapped[bool] = mapped_column(default=False)
     verification_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     token_expires_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
