@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, 
 from sqlalchemy.orm import Session
 
 from App.Services.User_service import add_address, show_my_address, delete_address_by_id, update_address_by_id, default_address
-from App.Services.admin_service import get_users
+from App.Services.admin_service import *
 from App.Database_Setup import get_db
 from App.Models import User, RefreshToken, Address
 from App.Schemas import (
@@ -302,5 +302,18 @@ def default_the_address(data: defaultaddress, address_id: int, current_user: Use
     return default_address(data, address_id, current_user, db)
 
 @router.get("/admin/users", dependencies=[Depends(RoleChecker(["admin", "superadmin"]))], tags=["Admin"])
-def get_all_users(db: Session = Depends(get_db)):
-    return get_users(db)
+def get_users(db: Session = Depends(get_db)):
+    return ListUsers(db)
+
+@router.get("/admin/users/{id}", dependencies=[Depends(RoleChecker(["admin", "superadmin"]))], tags=["Admin"])
+def get_user_ID(id: int, db: Session = Depends(get_db)):
+    return GetUserByID(db, id)
+
+@router.delete("/admin/users/{id}", dependencies=[Depends(RoleChecker(["admin", "superadmin"]))], tags=["Admin"])
+def get_user_ID(id: int, db: Session = Depends(get_db)):
+    DeleteUser(db, id)
+    return {"message": "this user is deleted"}
+
+@router.put("/admin/users/{id}", dependencies=[Depends(RoleChecker(["admin", "superadmin"]))], tags=["Admin"])
+def update_user(id: int, db: Session = Depends(get_db)):
+    
