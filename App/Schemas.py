@@ -115,3 +115,15 @@ feilds_for_address = FieldsForAddress
 class defaultaddress(BaseModel):
     default: bool
 
+class UpdateUserByAdmin(BaseModel):
+    role: Optional[str] = None
+    is_verified: Optional[bool] = None
+    is_locked: Optional[bool] = None
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v):
+        allowed_roles = ["buyer", "seller", "admin", "superadmin"]
+        if v not in allowed_roles:
+            raise ValueError(f"Role must be one of {allowed_roles}")
+        return v

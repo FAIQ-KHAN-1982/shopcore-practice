@@ -314,6 +314,9 @@ def get_user_ID(id: int, db: Session = Depends(get_db)):
     DeleteUser(db, id)
     return {"message": "this user is deleted"}
 
-@router.put("/admin/users/{id}", dependencies=[Depends(RoleChecker(["admin", "superadmin"]))], tags=["Admin"])
-def update_user(id: int, db: Session = Depends(get_db)):
+@router.put("/admin/users/{id}",response_model=UserResponse, dependencies=[Depends(RoleChecker(["admin", "superadmin"]))], tags=["Admin"])
+def update_user(data: UpdateUserByAdmin, id: int, db: Session = Depends(get_db)):
+    return AdminUpdateUser(data, db, id)
+     
+    
     
