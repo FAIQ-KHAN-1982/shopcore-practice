@@ -43,6 +43,3 @@ def AdminUpdateUser(data: UpdateUserByAdmin, db: Session, id: int):
     db.refresh(user)
 
     return user
-
-
-

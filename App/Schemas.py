@@ -127,3 +127,4 @@ class UpdateUserByAdmin(BaseModel):
         if v not in allowed_roles:
             raise ValueError(f"Role must be one of {allowed_roles}")
         return v
+
