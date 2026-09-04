@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
-from App.routers import router
+from App.Routers import router
 from App.Database_Setup import Base, engine
 from App.Models import User, RefreshToken, Address  # noqa: F401 - ensure models are registered
 
