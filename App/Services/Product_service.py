@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from App.Schemas import CategoryCreate
 
 def AddCategory(data: CategoryCreate, db: Session):
+    
     new_category = CategoryCreate(
         name = data.name,
         slug = data.slug,
@@ -11,5 +12,8 @@ def AddCategory(data: CategoryCreate, db: Session):
         sort_order = data.sort_order
     )
 
+    db.add(new_category)
+    db.commit()
+    db.refresh(new_category)
     
-    
+    return new_category

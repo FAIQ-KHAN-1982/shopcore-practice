@@ -2,6 +2,7 @@ import os
 import sys
 from logging.config import fileConfig
 
+from App.Models import *          # imports User, RefreshToken, Address, Categories
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 

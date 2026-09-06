@@ -3,7 +3,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
-from App.Routers import router
+from App.Routers import router as main_router
+from App.Routers.Product_routers import router as product_router
 from App.Database_Setup import Base, engine
 from App.Models import User, RefreshToken, Address  # noqa: F401 - ensure models are registered
 
@@ -20,7 +21,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(router)
+app.include_router(main_router)
+app.include_router(product_router)
 
 frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
 if os.path.exists(frontend_dir):
