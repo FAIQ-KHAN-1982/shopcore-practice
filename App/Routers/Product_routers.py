@@ -10,7 +10,7 @@ from App.Services.Product_service import AddCategory
 
 router = APIRouter()
 
-@router.put("/admin/categories", dependencies=[Depends(RoleChecker(["admin", "superadmin"]))], tags=["Products"])
+@router.post("/categories", dependencies=[Depends(RoleChecker(["admin", "superadmin"]))], tags=["Products"])
 def add_category(data: CategoryCreate, db: Session = Depends(get_db)):
-   new_category = AddCategory(data, db)
-   return new_category
+    new_category = AddCategory(data, db)
+    return new_category
