@@ -1,9 +1,9 @@
 from sqlalchemy.orm import Session
-from App.Schemas import CategoryCreate
+from App.Schemas import CategoryCreateSchema
 from App.Models import Categories
 from fastapi import HTTPException, status
 
-def AddCategory(data: CategoryCreate, db: Session):
+def AddCategory(data: CategoryCreateSchema, db: Session):
     
     # Check if category with same slug already exists
     existing_category = db.query(Categories).filter(Categories.slug == data.slug).first()
@@ -17,13 +17,25 @@ def AddCategory(data: CategoryCreate, db: Session):
         name=data.name,
         slug=data.slug,
         description=data.description,
-        image_url=data.image_url,
         parent_id=data.parent_id,
         sort_order=data.sort_order,
         is_active=True
     )
+    
     db.add(new_category)
     db.commit()
     db.refresh(new_category)
     
     return new_category
+
+def DeleteCategory(id: int, db: Session):
+    the_row = db.query(Categories).filter(Categories.id == id).first()
+    if not the_row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Category not found"
+        )
+    db.delete(the_row)
+    db.commit()
+    return "Category deleted successfully"
+
