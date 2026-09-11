@@ -6,7 +6,7 @@ from App.Database_Setup import get_db
 from App.Models import Categories, User
 from App.Security import get_current_user, RoleChecker
 from App.Schemas import CategoryCreateSchema
-from App.Services.Product_service import AddCategory, DeleteCategory 
+from App.Services.Product_service import AddCategory, DeleteCategory
 
 router = APIRouter()
 
@@ -18,10 +18,7 @@ def add_category(data: CategoryCreateSchema, db: Session = Depends(get_db)):
     new_category = AddCategory(data, db)
     return new_category
 
-@router.delete("/admin/categories/{id}", dependencies=[Depends(RoleChecker(["admin", "superadmin"]))], tags=["Products"])
-def delete_category(id: int, db: Session = Depends(get_db)):
-    return DeleteCategory(id, db)
+@router.delete("/admin/categories/{category_id}", dependencies=[Depends(RoleChecker(["admin", "superadmin"]))], tags=["Products"])
+def delete_category(category_id: int, db: Session = Depends(get_db)):
+    return DeleteCategory(category_id, db)  
 
-@router.put("/admin/categories/{id}", dependencies=[Depends(RoleChecker(["admin", "superadmin"]))], tags=["Products"])
-def delete_category(id: int, db: Session = Depends(get_db)):
-    return DeleteCategory(id, db)

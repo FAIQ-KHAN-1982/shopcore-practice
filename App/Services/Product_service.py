@@ -28,13 +28,17 @@ def AddCategory(data: CategoryCreateSchema, db: Session):
     
     return new_category
 
-def DeleteCategory(id: int, db: Session):
-    the_row = db.query(Categories).filter(Categories.id == id).first()
+def DeleteCategory(category_id: int, db: Session):
+    the_row = db.query(Categories).filter(Categories.id == category_id).first()
     if not the_row:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Category not found"
         )
+    # Re-parent child categories to avoid foreign key violation
+    db.query(Categories).filter(Categories.parent_id == category_id).update(
+        {Categories.parent_id: None}
+    )
     db.delete(the_row)
     db.commit()
     return "Category deleted successfully"
