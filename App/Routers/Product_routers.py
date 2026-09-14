@@ -20,5 +20,5 @@ def add_category(data: CategoryCreateSchema, db: Session = Depends(get_db)):
 
 @router.delete("/admin/categories/{category_id}", dependencies=[Depends(RoleChecker(["admin", "superadmin"]))], tags=["Products"])
 def delete_category(category_id: int, db: Session = Depends(get_db)):
-    return DeleteCategory(category_id, db)  
+    return DeleteCategory(category_id, db)
 

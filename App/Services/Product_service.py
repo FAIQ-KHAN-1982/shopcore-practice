@@ -41,5 +41,6 @@ def DeleteCategory(category_id: int, db: Session):
     )
     db.delete(the_row)
     db.commit()
-    return "Category deleted successfully"
+    
+    return {"message": f"{the_row.name} is deleted"}
 
