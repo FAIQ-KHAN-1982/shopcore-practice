@@ -128,3 +128,5 @@ class UpdateUserByAdmin(BaseModel):
             raise ValueError(f"Role must be one of {allowed_roles}")
         return v
 
+class NewData(BaseModel):
+    role: str

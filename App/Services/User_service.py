@@ -1,4 +1,4 @@
-from App.Schemas import feilds_for_address, defaultaddress
+from App.Schemas import feilds_for_address, defaultaddress, NewData
 from App.Models import Address, User
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -101,3 +101,7 @@ def default_address(data: defaultaddress, address_id: int, current_user: User, d
     db.refresh(the_address)
     return the_address
 
+def edit_user(data: NewData, current_user: User, db: Session):
+    
+
+    
