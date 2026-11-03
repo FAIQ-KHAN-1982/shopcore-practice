@@ -102,6 +102,7 @@ def default_address(data: defaultaddress, address_id: int, current_user: User, d
     return the_address
 
 def edit_user(data: NewData, current_user: User, db: Session):
+    pass
     
 
     
